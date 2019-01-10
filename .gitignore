@@ -1,1 +1,7 @@
 *.o
+*.swp
+
+unit
+benchmark
+
+.gdb_history

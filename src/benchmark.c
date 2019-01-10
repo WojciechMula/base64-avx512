@@ -5,21 +5,11 @@
 #include <string.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <errno.h>
 
 #include "benchmark.h"
-#include "images_base64.h"
-#include "moby_dick.h"
-#include "webexamples.h"
-
-#include "klompavxbase64.h"
-#include "fastavxbase64.h"
-#include "scalarbase64.h"
 #include "chromiumbase64.h"
-#include "quicktimebase64.h"
-#include "linuxbase64.h"
-#ifdef HAVE_AVX512BW
 #include "fastavxbase64.h"
-#endif // HAVE_AVX512BW
 
 static const int repeat = 50;
 
@@ -30,18 +20,8 @@ void testencode(const char * data, size_t datalength, bool verbose) {
   size_t expected =   chromium_base64_encode(buffer, data,  datalength);
   if(verbose) printf("encoded size = %zu \n",expected);
   BEST_TIME_NOCHECK(memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
-  BEST_TIME_NOCHECK(linux_base64_encode(buffer, data, data + datalength),  , repeat, datalength,verbose);
-  BEST_TIME_NOCHECK(quicktime_base64_encode(buffer, data,datalength),  , repeat, datalength,verbose);
   BEST_TIME(chromium_base64_encode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
-  size_t outputlength;
-  klomp_avx2_base64_encode(data,datalength,buffer,&outputlength);
-  size_t avxexpected =  outputlength;
-  assert(outputlength == expected);
-  BEST_TIME_CHECK(scalar_base64_encode(data,datalength,buffer,&outputlength),(outputlength == avxexpected), , repeat, datalength,verbose);
   BEST_TIME_CHECK(fast_avx2_base64_encode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
-#ifdef HAVE_AVX512BW
-  BEST_TIME_CHECK(fast_avx512bw_base64_encode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
-#endif // HAVE_AVX512BW
   free(buffer);
   if(verbose) printf("\n");
 }
@@ -54,29 +34,20 @@ void testdecode(const char * data, size_t datalength, bool verbose) {
     return;
   }
   char * buffer = malloc(datalength * 2); // we allocate plenty of memory
-  size_t expected =   chromium_base64_decode(buffer, data,  datalength);
+  size_t expected =  chromium_base64_decode(buffer, data,  datalength);
   if(verbose) printf("original size = %zu \n",expected);
   BEST_TIME_NOCHECK(memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
-  BEST_TIME(linux_base64_decode(buffer, data, data + datalength), (int) expected, , repeat, datalength,verbose);
-  BEST_TIME(quicktime_base64_decode(buffer, data), (int) expected, , repeat, datalength,verbose);
   BEST_TIME(chromium_base64_decode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
 
-  size_t outputlength;
-  int avxexpected =  klomp_avx2_base64_decode(data,datalength,buffer,&outputlength);
-  assert(outputlength == expected);
-  BEST_TIME(scalar_base64_decode(data,datalength,buffer,&outputlength), avxexpected, , repeat, datalength,verbose);
-  BEST_TIME(klomp_avx2_base64_decode(data,datalength,buffer,&outputlength), avxexpected, , repeat, datalength,verbose);
   BEST_TIME(fast_avx2_base64_decode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
-#ifdef HAVE_AVX512BW
-  BEST_TIME(fast_avx512bw_base64_decode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
-#endif // HAVE_AVX512BW
 
   free(buffer);
   if(verbose) printf("\n");
 }
 
+void test_real_data();
+
 int main() {
-//int main(int argc, char **argv) {
   RDTSC_SET_OVERHEAD(rdtsc_overhead_func(1), repeat);
 
   printf("Testing first with random data.\n");
@@ -117,18 +88,72 @@ int main() {
   }
 
   printf("Testing with real data.\n");
+  test_real_data();
 
-  printf("lena [jpg]\n");
-  testdecode(lenabase64, sizeof(lenabase64) - 1,true);
-  printf("peppers [jpg]\n");
-  testdecode(peppersbase64, sizeof(peppersbase64) - 1,true);
-  printf("mandril [jpg]\n");
-  testdecode(mandrilbase64, sizeof(mandrilbase64) - 1,true);
-  printf("moby_dick [text]\n");
-  testdecode(moby_dick_base64, sizeof(moby_dick_base64) - 1,true);
-  printf("google logo [png]\n");
-  testdecode(googlelogo_base64, sizeof(googlelogo_base64) - 1,true);
-  printf("bing.com social icons [png]\n");
-  testdecode(bingsocialicon_base64, sizeof(bingsocialicon_base64) - 1,true);
   return 0;
 }
+
+typedef struct RealData {
+    const char* description;
+    const char* path;
+} RealData;
+
+typedef struct MemoryArray {
+    char*  bytes;
+    size_t size;
+} MemoryArray;
+
+void load_file(const char* path, MemoryArray* data);
+
+RealData real_data[] = {
+    {"lena [jpg]",              "data/lena_color_512.base64"},
+    {"peppers [jpg]",           "data/peppers_color.base64"},
+    {"mandril [jpg]",           "data/mandril_color.base64"},
+    {"moby_dick [text]",        "data/moby_dick.base64"},
+    {"google logo [png]",       "data/googlelogo.base64"},
+    {"bing.com social icons [png]", "data/bing.base64"},
+    {NULL, NULL}
+};
+
+void test_real_data() {
+    
+    MemoryArray data;
+    RealData* item;
+    
+    for (item = real_data; item->description != NULL; item++) {
+        printf("%s\n", item->description);
+        load_file(item->path, &data);
+        testdecode(data.bytes, data.size, true);
+        free(data.bytes);
+        item++;
+    }
+}
+
+void load_file(const char* path, MemoryArray* data) {
+    FILE* f = fopen(path, "rb");
+    if (f == NULL) {
+        printf("Can't open '%s': %s\n", path, strerror(errno));
+        exit(1);
+    }
+
+    fseek(f, 0, SEEK_END);
+    data->size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    data->bytes = malloc(data->size);
+    if (data->bytes == NULL) {
+        puts("allocation failed");
+        exit(1);
+    }
+
+    if (fread(data->bytes, 1, data->size, f) != data->size) {
+        printf("Error reading '%s': %s\n", path, strerror(errno));
+        exit(1);
+    }
+
+    // This is a hack, as some implementations require input divisible by 4.
+    data->size = (data->size / 4) * 4;
+
+    fclose(f);
+}
+
