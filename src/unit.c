@@ -9,6 +9,8 @@
 
 #include "chromiumbase64.h"
 #include "fastavxbase64.h"
+#include "encode_base64_avx512vbmi.h"
+#include "decode_base64_avx512vbmi.h"
 
 
 void print_example(const char * source) {
@@ -59,6 +61,39 @@ void fast_avx2_checkExample(const char * source, const char * coded) {
   free(dest1);
   free(dest2);
   free(dest3);
+}
+
+typedef void    (*encode_base64_function)(const uint8_t* input, size_t size, uint8_t* output);
+typedef size_t  (*decode_base64_function)(const uint8_t* input, size_t size, uint8_t* output);
+
+void test(
+    const char* name,
+    encode_base64_function encode,
+    decode_base64_function decode,
+    const char* source,
+    const char* coded)
+{
+  printf("%s\n", name);
+
+  size_t size = strlen(source);
+  size_t encoded_len;
+  size_t decoded_len;
+  size_t decoded_len_ret;
+
+  encoded_len = chromium_base64_encode_len(size);
+  decoded_len = chromium_base64_decode_len(encoded_len);
+
+  uint8_t* dest1 = (uint8_t*)malloc(encoded_len);
+  encode((const uint8_t*)source, size, dest1);
+  assert(memcmp(dest1, coded, encoded_len) == 0);
+
+  uint8_t* dest2 = (uint8_t*)malloc(decoded_len);
+  decoded_len_ret = decode((const uint8_t*)coded, strlen(coded), dest2);
+  assert(decoded_len_ret == strlen(source));
+  assert(memcmp(dest2, source, size) == 0);
+
+  free(dest1);
+  free(dest2);
 }
 
 static const uint8_t base64_table_enc[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -119,7 +154,9 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=";
   fast_avx2_checkExample(gosource,gocoded);
   fast_avx2_checkExample(tutosource,tutocoded);
 
+  test("AVX512VBMI", encode_base64_avx512vbmi, decode_base64_avx512vbmi, wikipediasource, wikipediacoded);
+
   print_example("R0lGODlhAQABAIAAAP///wAAACwAAAAAAQABAAACAkQBADs=");
-	printf("Code looks ok.\n");
+  printf("Code looks ok.\n");
   return 0;
 }
