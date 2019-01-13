@@ -10,6 +10,7 @@
 #include "chromiumbase64.h"
 #include "fastavxbase64.h"
 #include "encode_base64_avx512vbmi.h"
+#include "encode_base64_avx512vl.h"
 #include "decode_base64_avx512vbmi.h"
 
 
@@ -155,6 +156,7 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=";
   fast_avx2_checkExample(tutosource,tutocoded);
 
   test("AVX512VBMI", encode_base64_avx512vbmi, decode_base64_avx512vbmi, wikipediasource, wikipediacoded);
+  test("AVX512VL", encode_base64_avx512vl, decode_base64_avx512vbmi, wikipediasource, wikipediacoded);
 
   print_example("R0lGODlhAQABAIAAAP///wAAACwAAAAAAQABAAACAkQBADs=");
   printf("Code looks ok.\n");
