@@ -4,7 +4,7 @@
 
 #include <immintrin.h>
 
-void encode_base64_avx512vl(const uint8_t* src, size_t size, uint8_t* dst) {
+void encode_base64_avx512vl(uint8_t* dst, const uint8_t* src, size_t size) {
 
     static const char* lookup_tbl = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 

@@ -3,4 +3,4 @@
 #include <stdint.h>
 #include <stddef.h>
 
-void encode_base64_avx512vl(const uint8_t* input, size_t bytes, uint8_t* output);
+void encode_base64_avx512vl(uint8_t* output, const uint8_t* input, size_t size);

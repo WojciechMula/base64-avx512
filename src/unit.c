@@ -64,8 +64,8 @@ void fast_avx2_checkExample(const char * source, const char * coded) {
   free(dest3);
 }
 
-typedef void    (*encode_base64_function)(const uint8_t* input, size_t size, uint8_t* output);
-typedef size_t  (*decode_base64_function)(const uint8_t* input, size_t size, uint8_t* output);
+typedef void    (*encode_base64_function)(uint8_t* output, const uint8_t* input, size_t size);
+typedef size_t  (*decode_base64_function)(uint8_t* output, const uint8_t* input, size_t size);
 
 void test(
     const char* name,
@@ -85,11 +85,11 @@ void test(
   decoded_len = chromium_base64_decode_len(encoded_len);
 
   uint8_t* dest1 = (uint8_t*)malloc(encoded_len);
-  encode((const uint8_t*)source, size, dest1);
+  encode(dest1, (const uint8_t*)source, size);
   assert(memcmp(dest1, coded, encoded_len) == 0);
 
   uint8_t* dest2 = (uint8_t*)malloc(decoded_len);
-  decoded_len_ret = decode((const uint8_t*)coded, strlen(coded), dest2);
+  decoded_len_ret = decode(dest2, (const uint8_t*)coded, strlen(coded));
   assert(decoded_len_ret == strlen(source));
   assert(memcmp(dest2, source, size) == 0);
 

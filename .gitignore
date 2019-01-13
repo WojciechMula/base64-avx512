@@ -1,8 +1,12 @@
 *.o
 *.pyc
 *.swp
+.gdb_history
+perf.data*
 
+# executables
 unit
 benchmark
 
-.gdb_history
+# generated files
+*.txt

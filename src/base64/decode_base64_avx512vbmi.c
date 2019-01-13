@@ -13,7 +13,7 @@
 // Note: constants lookup_lo, lookup_hi, pack were
 // generated with scripts/avx512vbmi_decode_lookups.py
 
-size_t decode_base64_avx512vbmi(const uint8_t* src, size_t size, uint8_t* dst) {
+size_t decode_base64_avx512vbmi(uint8_t* dst, const uint8_t* src, size_t size) {
 
     const __m512i lookup_0 = _mm512_setr_epi32(
                                 0x80808080, 0x80808080, 0x80808080, 0x80808080,
