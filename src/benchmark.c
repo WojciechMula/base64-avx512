@@ -67,7 +67,7 @@ int main() {
     printf("error opening %s \n", decodingfilename);
   }
 
-  printf("#displaying cycles per input bytes for decoders: chromium, AVX2, AVX512VBMI; first column is number of bytes\n");
+  printf("#displaying cycles per input bytes for memcpy and decoders: chromium, AVX2, AVX512VBMI; first column is number of bytes\n");
 
   for(int l = 8; l <= N; l ++) {
     printf("%d ",l);
@@ -82,7 +82,7 @@ int main() {
   if ( freopen(encodingfilename,"w",stdout) == NULL) {
     printf("error opening %s \n", encodingfilename);
   }
-  printf("#displaying cycles per input bytes for encoders: chromium, AVX2, AVX512VBMI, AVX512VL, first column is number of bytes\n");
+  printf("#displaying cycles per input bytes for memcpy and encoders: chromium, AVX2, AVX512VBMI, AVX512VL, first column is number of bytes\n");
   for(int l = 8; l <= N; l ++) {
     printf("%d ",l);
     testencode(randombuffer, l, false);
