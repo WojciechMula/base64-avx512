@@ -12,7 +12,9 @@ BASE64=obj/chromiumbase64.o\
 
 ALL=$(BASE64)\
     unit\
-    benchmark
+    unit_despace\
+    benchmark\
+    benchmark_despace
 
 # ------------------------------------------------------------
 
@@ -43,6 +45,9 @@ unit_despace: src/unit_despace.c $(BASE64)
 	$(CC) $(FLAGS) $< $(BASE64) -o $@
 
 benchmark: src/benchmark.c src/benchmark.h $(BASE64)
+	$(CC) $(FLAGS) $< $(BASE64) -o $@
+
+benchmark_despace: src/benchmark_despace.c src/benchmark.h $(BASE64)
 	$(CC) $(FLAGS) $< $(BASE64) -o $@
 
 # ------------------------------------------------------------
