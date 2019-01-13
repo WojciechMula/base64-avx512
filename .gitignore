@@ -6,7 +6,6 @@ perf.data*
 
 # executables
 unit
+unit_despace
 benchmark
 
-# generated files
-*.txt

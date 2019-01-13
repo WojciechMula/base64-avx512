@@ -1,5 +1,6 @@
 def main():
     decode_lookup()
+    decode_lookup_despace()
     decode_pack()
 
 
@@ -20,6 +21,42 @@ def decode_lookup():
             lookup = lookup_lo
 
         lookup[index] = encoded
+
+    print("lookup_lo")
+    format_lookup(lookup_lo)
+    print("lookup_hi")
+    format_lookup(lookup_hi)
+
+
+def decode_lookup_despace():
+    print "decode lookup (despace)"
+    base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    spaces = ' \r\n'
+
+    lookup_hi = [0x80] * 64
+    lookup_lo = [0x80] * 64
+
+    for encoded, char in enumerate(base64):
+
+        value = ord(char)
+        index = value & 0x3f
+        if value & 0x40:
+            lookup = lookup_hi
+        else:
+            lookup = lookup_lo
+
+        lookup[index] = encoded
+
+    for char in spaces:
+
+        value = ord(char)
+        index = value & 0x3f
+        if value & 0x40:
+            lookup = lookup_hi
+        else:
+            lookup = lookup_lo
+
+        lookup[index] = 0x40 # set 6th bit
 
     print("lookup_lo")
     format_lookup(lookup_lo)
