@@ -11,6 +11,85 @@
 #include "encode_base64_avx512vbmi.h"
 #include "decode_base64_avx512vbmi_despace.h"
 
+
+void test_wikidata();
+void test_synthetic();
+
+int main() {
+    test_wikidata();
+    test_synthetic();
+    return 0;
+}
+
+
+size_t count_bytes(uint8_t* data, size_t size, uint8_t val) {
+    size_t res = 0;
+    for (size_t i=0; i < size; i++)
+        res += (data[i] == val);
+
+    return res;
+}
+
+void test_synthetic() {
+
+    puts("Test sythetic data (might take a while)");
+
+    size_t size = 64 * 3;
+    uint8_t buffer[size + 1];
+    uint8_t dest[size + 1];
+
+    buffer[size] = '\0'; // make it puts-friendly
+
+    uint8_t BASE64_CHAR = 'V';
+
+    int passed = 0;
+    int failed = 0;
+
+    for (size_t i=0; i < size; i++) {
+        for (size_t j=i; j < size; j++) {
+            for (size_t k=j; k < size; k++) {
+                memset(buffer, BASE64_CHAR, size);
+                buffer[i] = ' ';
+                buffer[j] = ' ';
+                buffer[k] = ' ';
+
+
+                // 1. assure that input with spaces is valid base64 string
+                size_t base64_len = count_bytes(buffer, size, BASE64_CHAR);
+                uint8_t* input = buffer;
+                size_t   input_size = size;
+                while (base64_len % 4 != 0) {
+                    if (*input == BASE64_CHAR) {
+                        input++;
+                        base64_len -= 1;
+                        input_size -= 1;
+                    } else if (input[input_size - 1] == BASE64_CHAR) {
+                        base64_len -= 1;
+                        input_size -= 1;
+                    } else {
+                        break;
+                    }
+                }
+
+                // 2. test
+                if (base64_len % 4 == 0) {
+                    size_t decoded_len = decode_base64_avx512vbmi_despace(dest, input, input_size);
+                    if (decoded_len == (size_t)(-1)) {
+                        printf("failed for i = %lu j = %lu k = %lu\n", i, j, k);
+                        printf("'%*s'\n", (int)input_size, input);
+                        failed += 1;
+                    }
+                    else
+                        passed += 1;
+                }
+            }
+        }
+    }
+
+    printf("Summary: %d passed, %d failed\n", passed, failed);
+}
+
+
 char* insert_spaces(const char* data, double prob);
 
 typedef size_t (*decode_base64_function)(uint8_t* output, const uint8_t* input, size_t size);
@@ -39,8 +118,8 @@ void test(
 
   if (memcmp(dest, source, size) != 0) {
     puts("different results");
-    puts(source);
-    puts(dest);
+    puts((const char*)source);
+    puts((const char*)dest);
     fail = 1;
   }
 
@@ -49,7 +128,9 @@ void test(
   if (fail) exit(1);
 }
 
-int main() {
+void test_wikidata() {
+
+  puts("Test wikidata");
 
   // from Wikipedia page
   const char * wikipediasource =
@@ -76,8 +157,6 @@ int main() {
 
         free(encoded_with_spaces);
     }
-
-    return 0;
 }
 
 double randd() {
