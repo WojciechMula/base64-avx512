@@ -51,7 +51,94 @@ void testdecode(const char * data, size_t datalength, bool verbose) {
   if(verbose) printf("\n");
 }
 
-void test_real_data();
+//void test_real_data();
+
+typedef struct RealData {
+    const char* description;
+    const char* path;
+} RealData;
+
+typedef struct MemoryArray {
+    char*  bytes;
+    size_t size;
+} MemoryArray;
+
+void load_file(const char* path, MemoryArray* data);
+
+RealData real_data[] = {
+    {"lena [jpg]",              "data/lena_color_512.base64"},
+    {"peppers [jpg]",           "data/peppers_color.base64"},
+    {"mandril [jpg]",           "data/mandril_color.base64"},
+    {"moby_dick [text]",        "data/moby_dick.base64"},
+    {"google logo [png]",       "data/googlelogo.base64"},
+    {"bing.com social icons [png]", "data/bing.base64"},
+    {NULL, NULL}
+};
+
+static inline size_t despace(char *bytes, size_t howmany) {
+  size_t i = 0, pos = 0;
+  while (i < howmany) {
+    const char c = bytes[i++];
+    bytes[pos] = c;
+    pos += ((unsigned char)c > 32 ? 1 : 0);
+  }
+  return pos;
+}
+
+
+
+void test_real_data(bool removespaces) {
+    
+    MemoryArray data;
+    RealData* item;
+    
+    for (item = real_data; item->description != NULL; item++) {
+        printf("%s\n", item->description);
+        printf("loading file %s \n", item->path);
+        load_file(item->path, &data);
+        if(removespaces) {
+          printf("removing spaces (as a preliminary step), init size = %zu, ", data.size);
+          data.size = despace(data.bytes,data.size);
+          printf(" final size = %zu \n", data.size);
+        }
+        testdecode(data.bytes, data.size, true);
+        free(data.bytes);
+        item++;
+    }
+}
+
+void load_file(const char* path, MemoryArray* data) {
+    FILE* f = fopen(path, "rb");
+    if (f == NULL) {
+        printf("Can't open '%s': %s\n", path, strerror(errno));
+        exit(1);
+    }
+
+    fseek(f, 0, SEEK_END);
+    data->size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    data->bytes = malloc(data->size);
+    if (data->bytes == NULL) {
+        puts("allocation failed");
+        exit(1);
+    }
+
+    if (fread(data->bytes, 1, data->size, f) != data->size) {
+        printf("Error reading '%s': %s\n", path, strerror(errno));
+        exit(1);
+    }
+
+
+    fclose(f);
+}
+
+
+
+
+
+
+
 
 int main() {
   RDTSC_SET_OVERHEAD(rdtsc_overhead_func(1), repeat);
@@ -94,72 +181,10 @@ int main() {
   }
 
   printf("Testing with real data.\n");
-  test_real_data();
+  bool removespaces = true;
+  test_real_data(removespaces);
 
-  return 0;
+  return EXIT_SUCCESS;
 }
 
-typedef struct RealData {
-    const char* description;
-    const char* path;
-} RealData;
-
-typedef struct MemoryArray {
-    char*  bytes;
-    size_t size;
-} MemoryArray;
-
-void load_file(const char* path, MemoryArray* data);
-
-RealData real_data[] = {
-    {"lena [jpg]",              "data/lena_color_512.base64"},
-    {"peppers [jpg]",           "data/peppers_color.base64"},
-    {"mandril [jpg]",           "data/mandril_color.base64"},
-    {"moby_dick [text]",        "data/moby_dick.base64"},
-    {"google logo [png]",       "data/googlelogo.base64"},
-    {"bing.com social icons [png]", "data/bing.base64"},
-    {NULL, NULL}
-};
-
-void test_real_data() {
-    
-    MemoryArray data;
-    RealData* item;
-    
-    for (item = real_data; item->description != NULL; item++) {
-        printf("%s\n", item->description);
-        load_file(item->path, &data);
-        testdecode(data.bytes, data.size, true);
-        free(data.bytes);
-        item++;
-    }
-}
-
-void load_file(const char* path, MemoryArray* data) {
-    FILE* f = fopen(path, "rb");
-    if (f == NULL) {
-        printf("Can't open '%s': %s\n", path, strerror(errno));
-        exit(1);
-    }
-
-    fseek(f, 0, SEEK_END);
-    data->size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-
-    data->bytes = malloc(data->size);
-    if (data->bytes == NULL) {
-        puts("allocation failed");
-        exit(1);
-    }
-
-    if (fread(data->bytes, 1, data->size, f) != data->size) {
-        printf("Error reading '%s': %s\n", path, strerror(errno));
-        exit(1);
-    }
-
-    // This is a hack, as some implementations require input divisible by 4.
-    data->size = (data->size / 4) * 4;
-
-    fclose(f);
-}
 
