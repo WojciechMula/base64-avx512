@@ -25,8 +25,8 @@ void testencode(const char * data, size_t datalength, bool verbose) {
   BEST_TIME_NOCHECK(memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
   BEST_TIME(chromium_base64_encode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
   BEST_TIME_CHECK(fast_avx2_base64_encode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
-  BEST_TIME_CHECK(encode_base64_avx512vbmi(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
-  BEST_TIME_CHECK(encode_base64_avx512vl(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
+  BEST_TIME_CHECK(encode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
+  BEST_TIME_CHECK(encode_base64_avx512vl((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
   free(buffer);
   if(verbose) printf("\n");
 }
@@ -45,7 +45,7 @@ void testdecode(const char * data, size_t datalength, bool verbose) {
   BEST_TIME(chromium_base64_decode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
 
   BEST_TIME(fast_avx2_base64_decode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
-  BEST_TIME(decode_base64_avx512vbmi(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
+  BEST_TIME(decode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
 
   free(buffer);
   if(verbose) printf("\n");
