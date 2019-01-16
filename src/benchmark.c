@@ -13,6 +13,7 @@
 #include "encode_base64_avx512vbmi.h"
 #include "encode_base64_avx512vl.h"
 #include "decode_base64_avx512vbmi.h"
+#include "decode_base64_avx512vbmi_despace.h"
 
 static const int repeat = 50;
 
@@ -46,6 +47,8 @@ void testdecode(const char * data, size_t datalength, bool verbose) {
 
   BEST_TIME(fast_avx2_base64_decode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
   BEST_TIME(decode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
+  BEST_TIME(decode_base64_avx512vbmi_despace((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
+
 
   free(buffer);
   if(verbose) printf("\n");
