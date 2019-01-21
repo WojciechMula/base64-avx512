@@ -66,11 +66,11 @@ size_t decode_base64_avx512vbmi_despace(uint8_t* dst, const uint8_t* src, size_t
         __m512i translated = _mm512_permutex2var_epi8(lookup_0, input, lookup_1);
 
         // 2a. check for errors --- convert MSBs to a mask
-        const uint64_t error_mask = _mm512_movepi8_mask(translated | input);
+        const uint64_t error_mask = _mm512_test_epi8_mask(translated | input, _mm512_set1_epi8((int8_t)0x80));
         if (error_mask != 0) return MODP_B64_ERROR;
 
         // 3. check if we need there are spaces (bit 6th)
-        uint64_t whitespace_mask = _mm512_movepi8_mask(_mm512_add_epi8(translated, translated));
+        uint64_t whitespace_mask = _mm512_test_epi8_mask(translated, _mm512_set1_epi8(0x40));
         if (whitespace_mask == 0) {
             // no despacing
             const __m512i merge_ab_and_bc = _mm512_maddubs_epi16(translated, _mm512_set1_epi32(0x01400140));

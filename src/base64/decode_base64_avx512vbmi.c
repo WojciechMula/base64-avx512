@@ -36,7 +36,7 @@ size_t decode_base64_avx512vbmi(uint8_t* dst, const uint8_t* src, size_t size) {
         __m512i translated = _mm512_permutex2var_epi8(lookup_0, input, lookup_1);
 
         // 2a. check for errors --- convert MSBs to a mask
-        const uint64_t mask = _mm512_movepi8_mask(translated | input);
+        const uint64_t mask = _mm512_test_epi8_mask(translated | input, _mm512_set1_epi8((int8_t)0x80));
         if (mask != 0) break;
 
         // 3. pack four 6-bit values into 24-bit words (all within 32-bit lanes)
