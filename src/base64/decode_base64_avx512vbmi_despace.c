@@ -54,8 +54,7 @@ size_t decode_base64_avx512vbmi_despace(uint8_t* dst, const uint8_t* src, size_t
         _mm512_set1_epi8(32),
     };
 
-    const uint8_t* src_start = src;
-    const uint8_t* src_end   = src + size;
+    const uint8_t* src_end = src + size;
     uint8_t* start = dst;
     size_t scalar = 0;
 
@@ -176,10 +175,10 @@ despace:
     }
 
     // this is a really slow part
-    if (src - src_start > 0) {
+    if (src_end - src > 0) {
         uint8_t tmp[128];
 
-        size = despace(tmp, src, src - src_start);
+        size = despace(tmp, src, src_end - src);
         scalar = chromium_base64_decode((char*)dst, (const char*)tmp, size);
         if (scalar == MODP_B64_ERROR) return MODP_B64_ERROR;
     }
