@@ -54,10 +54,12 @@ size_t decode_base64_avx512vbmi_despace(uint8_t* dst, const uint8_t* src, size_t
         _mm512_set1_epi8(32),
     };
 
+    const uint8_t* src_start = src;
+    const uint8_t* src_end   = src + size;
     uint8_t* start = dst;
     size_t scalar = 0;
 
-    while (size >= 64) {
+    while (src + 64 < src_end) {
 
         // 1. load input
         __m512i input = _mm512_loadu_si512((const __m512i*)src);
@@ -71,24 +73,25 @@ size_t decode_base64_avx512vbmi_despace(uint8_t* dst, const uint8_t* src, size_t
 
         // 3. check if we need there are spaces (bit 6th)
         uint64_t whitespace_mask = _mm512_movepi8_mask(_mm512_add_epi8(translated, translated));
-        if (whitespace_mask == 0) {
-            // no despacing
-            const __m512i merge_ab_and_bc = _mm512_maddubs_epi16(translated, _mm512_set1_epi32(0x01400140));
-            const __m512i merged = _mm512_madd_epi16(merge_ab_and_bc, _mm512_set1_epi32(0x00011000));
+        if (whitespace_mask != 0) goto despace;
+        // no despacing
+        const __m512i merge_ab_and_bc = _mm512_maddubs_epi16(translated, _mm512_set1_epi32(0x01400140));
+        const __m512i merged = _mm512_madd_epi16(merge_ab_and_bc, _mm512_set1_epi32(0x00011000));
 
-            const __m512i pack = _mm512_setr_epi32(
-                                    0x06000102, 0x090a0405, 0x0c0d0e08, 0x16101112,
-                                    0x191a1415, 0x1c1d1e18, 0x26202122, 0x292a2425,
-                                    0x2c2d2e28, 0x36303132, 0x393a3435, 0x3c3d3e38,
-                                    0x00000000, 0x00000000, 0x00000000, 0x00000000);
-            const __m512i shuffled = _mm512_permutexvar_epi8(pack, merged);
+        const __m512i pack = _mm512_setr_epi32(
+                                0x06000102, 0x090a0405, 0x0c0d0e08, 0x16101112,
+                                0x191a1415, 0x1c1d1e18, 0x26202122, 0x292a2425,
+                                0x2c2d2e28, 0x36303132, 0x393a3435, 0x3c3d3e38,
+                                0x00000000, 0x00000000, 0x00000000, 0x00000000);
+        const __m512i shuffled = _mm512_permutexvar_epi8(pack, merged);
 
-            _mm512_storeu_si512((__m512*)dst, shuffled);
+        _mm512_storeu_si512((__m512*)dst, shuffled);
 
-            src += 64;
-            dst += 48;
-            size -= 64;
-        } else {
+        src += 64;
+        dst += 48;
+        continue;
+despace:
+        {
             // maybe we should explicitly handle case popcount(whitespace_mask) < 4? [Wojciech]
 
             // despace --- Zach's algorithm starts here
@@ -168,16 +171,15 @@ size_t decode_base64_avx512vbmi_despace(uint8_t* dst, const uint8_t* src, size_t
             const size_t   input_skip           = 64 - __builtin_clzll(expanded) - !!(count != rounded);
 
             src  += input_skip;
-            size -= input_skip;
             dst  += 3 * (count / 4);
         }
     }
 
     // this is a really slow part
-    if (size > 0) {
+    if (src - src_start > 0) {
         uint8_t tmp[128];
 
-        size = despace(tmp, src, size);
+        size = despace(tmp, src, src - src_start);
         scalar = chromium_base64_decode((char*)dst, (const char*)tmp, size);
         if (scalar == MODP_B64_ERROR) return MODP_B64_ERROR;
     }
