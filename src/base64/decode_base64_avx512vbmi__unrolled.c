@@ -83,6 +83,43 @@ size_t decode_base64_avx512vbmi__unrolled(uint8_t* dst, const uint8_t* src, size
         size -= 4*64;
     }
 
+    while (size >= 64) {
+
+        // 1. load input
+        __m512i input = _mm512_loadu_si512((const __m512i*)src);
+
+        // 2. translate from ASCII into 6-bit values
+        __m512i translated = _mm512_permutex2var_epi8(lookup_0, input, lookup_1);
+
+        // 2a. check for errors --- convert MSBs to a mask
+        const uint64_t mask = _mm512_test_epi8_mask(translated | input, _mm512_set1_epi8((int8_t)0x80));
+        if (mask != 0) break;
+
+        // 3. pack four 6-bit values into 24-bit words (all within 32-bit lanes)
+        // Note: exactly the same procedure as we have in AVX2 version
+        // input:  packed_dword([00dddddd|00cccccc|00bbbbbb|00aaaaaa] x 4)
+        // merged: packed_dword([00000000|aaaaabbb|bbbbcccc|ccdddddd] x 4)
+        const __m512i merge_ab_and_bc = _mm512_maddubs_epi16(translated,
+                                                             _mm512_set1_epi32(0x01400140));
+
+        __m512i merged = _mm512_madd_epi16(merge_ab_and_bc, _mm512_set1_epi32(0x00011000));
+
+
+        // 4. pack 24-bit values into continous array of 48 bytes
+        const __m512i pack = _mm512_setr_epi32(
+                                0x06000102, 0x090a0405, 0x0c0d0e08, 0x16101112,
+                                0x191a1415, 0x1c1d1e18, 0x26202122, 0x292a2425,
+                                0x2c2d2e28, 0x36303132, 0x393a3435, 0x3c3d3e38,
+                                0x00000000, 0x00000000, 0x00000000, 0x00000000);
+        const __m512i shuffled = _mm512_permutexvar_epi8(pack, merged);
+
+        _mm512_storeu_si512((__m512*)dst, shuffled);
+
+        src += 64;
+        dst += 48;
+        size -= 64;
+    }
+
     size_t scalar = chromium_base64_decode((char*)dst, (const char*)src, size);
     if (scalar == MODP_B64_ERROR) return MODP_B64_ERROR;
     return (dst - start) + scalar;
