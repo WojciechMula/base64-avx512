@@ -12,6 +12,7 @@
 #include "encode_base64_avx512vbmi.h"
 #include "encode_base64_avx512vl.h"
 #include "decode_base64_avx512vbmi.h"
+#include "decode_base64_avx512vbmi__unrolled.h"
 
 
 void print_example(const char * source) {
@@ -147,6 +148,7 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=";
   const char * tutosource = "TutorialsPoint?java8";
   const char * tutocoded = "VHV0b3JpYWxzUG9pbnQ/amF2YTg=";
 
+
   chromium_checkExample(wikipediasource,wikipediacoded);
   chromium_checkExample(gosource,gocoded);
   chromium_checkExample(tutosource,tutocoded);
@@ -156,6 +158,7 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=";
   fast_avx2_checkExample(tutosource,tutocoded);
 
   test("AVX512VBMI", encode_base64_avx512vbmi, decode_base64_avx512vbmi, wikipediasource, wikipediacoded);
+  test("AVX512VBMI (unrolled)", encode_base64_avx512vbmi, decode_base64_avx512vbmi__unrolled, wikipediasource, wikipediacoded);
   test("AVX512VL", encode_base64_avx512vl, decode_base64_avx512vbmi, wikipediasource, wikipediacoded);
 
   print_example("R0lGODlhAQABAIAAAP///wAAACwAAAAAAQABAAACAkQBADs=");

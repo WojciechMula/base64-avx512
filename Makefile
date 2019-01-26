@@ -8,7 +8,8 @@ BASE64=obj/chromiumbase64.o\
        obj/encode_base64_avx512vbmi.o\
        obj/decode_base64_avx512vbmi.o\
        obj/encode_base64_avx512vl.o\
-       obj/decode_base64_avx512vbmi_despace.o
+       obj/decode_base64_avx512vbmi_despace.o\
+       obj/decode_base64_avx512vbmi__unrolled.o
 
 ALL=$(BASE64)\
     unit\
@@ -33,6 +34,9 @@ obj/encode_base64_avx512vl.o: src/base64/encode_base64_avx512vl.c include/encode
 	$(CC) $(FLAGS) $< -c -o $@
 
 obj/decode_base64_avx512vbmi.o: src/base64/decode_base64_avx512vbmi.c include/decode_base64_avx512vbmi.h
+	$(CC) $(FLAGS) $< -c -o $@
+
+obj/decode_base64_avx512vbmi__unrolled.o: src/base64/decode_base64_avx512vbmi__unrolled.c include/decode_base64_avx512vbmi__unrolled.h
 	$(CC) $(FLAGS) $< -c -o $@
 
 obj/decode_base64_avx512vbmi_despace.o: src/base64/decode_base64_avx512vbmi_despace.c include/decode_base64_avx512vbmi_despace.h

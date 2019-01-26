@@ -42,7 +42,7 @@ size_t decode_base64_avx512vbmi(uint8_t* dst, const uint8_t* src, size_t size) {
         // 3. pack four 6-bit values into 24-bit words (all within 32-bit lanes)
         // Note: exactly the same procedure as we have in AVX2 version
         // input:  packed_dword([00dddddd|00cccccc|00bbbbbb|00aaaaaa] x 4)
-        // merged: packed_dword([00000000|ddddddcc|ccccbbbb|bbaaaaaa] x 4)
+        // merged: packed_dword([00000000|aaaaabbb|bbbbcccc|ccdddddd] x 4)
         const __m512i merge_ab_and_bc = _mm512_maddubs_epi16(translated,
                                                              _mm512_set1_epi32(0x01400140));
 
