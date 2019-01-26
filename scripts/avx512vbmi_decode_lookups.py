@@ -2,6 +2,7 @@ def main():
     decode_lookup()
     decode_lookup_despace()
     decode_pack()
+    join_four_decoded()
 
 
 def decode_lookup():
@@ -77,6 +78,37 @@ def decode_pack():
         output += 4
 
     format_lookup(pack)
+
+
+def join_four_decoded():
+    print("join four decoded vectors")
+    # decoded data has 24-bit values in 32-bit words, we need to save these byte in a continous array
+
+    # vec0 has bytes   0 ..  48
+    # vec1 has bytes  49 ..  96
+    # vec2 has bytes  96 .. 144
+    # vec3 has bytes 144 .. 192
+    
+    join = []
+    index = 0
+
+    k = 0 
+    while len(join) < 4*48:
+        join.append(index + 2)
+        join.append(index + 1)
+        join.append(index + 0)
+        index += 4
+
+    join01 = join[0*64:1*64]
+    join12 = [x - 64 for x in join[1*64:2*64]]
+    join23 = [x - 128 for x in join[2*64:3*64]]
+
+    print "const __m512i join01 =",
+    format_lookup(join01)
+    print "const __m512i join12 =",
+    format_lookup(join12)
+    print "const __m512i join23 =",
+    format_lookup(join23)
 
 
 def format_lookup(array):
