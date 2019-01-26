@@ -27,7 +27,7 @@ int main() {
         uint8_t* dest = (uint8_t*)malloc(data_size);
 
         printf("data_size = %lu decoded_size = %lu\n", data_size, decoded_size);
-        BEST_TIME_NOCHECK(decode_base64_avx512vbmi_despace(dest, data, decoded_size),
+        BEST_TIME_NOCHECK("AVX512VBMI (despace)", decode_base64_avx512vbmi_despace(dest, data, decoded_size),
                           /*no-pre*/, repeat, data_size, verbose); 
 
         free(data);

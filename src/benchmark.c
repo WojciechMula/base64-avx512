@@ -24,11 +24,11 @@ void testencode(const char * data, size_t datalength, bool verbose) {
   char * buffer = malloc(datalength * 2); // we allocate plenty of memory
   size_t expected =   chromium_base64_encode(buffer, data,  datalength);
   if(verbose) printf("encoded size = %zu \n",expected);
-  BEST_TIME_NOCHECK(memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
-  BEST_TIME(chromium_base64_encode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
-  BEST_TIME_CHECK(fast_avx2_base64_encode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
-  BEST_TIME_CHECK(encode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
-  BEST_TIME_CHECK(encode_base64_avx512vl((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
+  BEST_TIME_NOCHECK("memcpy", memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
+  BEST_TIME("Google chrome", chromium_base64_encode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
+  BEST_TIME_CHECK("AVX2", fast_avx2_base64_encode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
+  BEST_TIME_CHECK("AVX512VBMI", encode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
+  BEST_TIME_CHECK("AVX512VL", encode_base64_avx512vl((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
   free(buffer);
   if(verbose) printf("\n");
 }
@@ -43,13 +43,13 @@ void testdecode(const char * data, size_t datalength, bool verbose) {
   char * buffer = malloc(datalength * 2); // we allocate plenty of memory
   size_t expected =  chromium_base64_decode(buffer, data,  datalength);
   if(verbose) printf("original size = %zu \n",expected);
-  BEST_TIME_NOCHECK(memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
-  BEST_TIME(chromium_base64_decode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
+  BEST_TIME_NOCHECK("memcpy", memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
+  BEST_TIME("Google chrome", chromium_base64_decode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
 
-  BEST_TIME(fast_avx2_base64_decode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
-  BEST_TIME(decode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
-  BEST_TIME(decode_base64_avx512vbmi__unrolled((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
-  BEST_TIME(decode_base64_avx512vbmi_despace((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
+  BEST_TIME("AVX2", fast_avx2_base64_decode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
+  BEST_TIME("AVX512VBMI", decode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
+  BEST_TIME("AVX512VBMI (unrolled)", decode_base64_avx512vbmi__unrolled((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
+  BEST_TIME("AVX512VBMI (despacing)", decode_base64_avx512vbmi_despace((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
 
 
   free(buffer);
