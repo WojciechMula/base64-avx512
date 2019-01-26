@@ -13,10 +13,12 @@
 
 
 void test_wikidata();
+void test_synthetic_simple();
 void test_synthetic();
 
 int main() {
     test_wikidata();
+    test_synthetic_simple();
     test_synthetic();
     return 0;
 }
@@ -28,6 +30,38 @@ size_t count_bytes(uint8_t* data, size_t size, uint8_t val) {
         res += (data[i] == val);
 
     return res;
+}
+
+void test_synthetic_simple() {
+
+    puts("Test sythetic data -- simple case");
+
+    size_t size = 64 * 4;
+    uint8_t input[size + 1];
+    uint8_t dest[size + 1];
+
+    uint8_t BASE64_CHAR = 'V';
+
+    int passed = 0;
+    int failed = 0;
+
+    for (size_t i=0; i < 64; i++) {
+        memset(input, BASE64_CHAR, sizeof(input));
+        input[size] = '\0';
+        input[i] = ' ';
+
+        const size_t input_size = 2*64 + 1;
+        size_t decoded_len = decode_base64_avx512vbmi_despace(dest, input, input_size);
+        if (decoded_len == (size_t)(-1)) {
+            printf("failed for i = %lu\n", i);
+            printf("'%*s'\n", (int)input_size, input);
+            failed += 1;
+        }
+        else
+            passed += 1;
+    }
+
+    printf("Summary: %d passed, %d failed\n", passed, failed);
 }
 
 void test_synthetic() {
