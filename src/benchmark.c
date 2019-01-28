@@ -15,6 +15,7 @@
 #include "decode_base64_avx512vbmi.h"
 #include "decode_base64_avx512vbmi__unrolled.h"
 #include "decode_base64_avx512vbmi_despace.h"
+#include "avx512memcpy.h"
 
 static const int repeat = 50;
 
@@ -29,6 +30,7 @@ void testencode(const char * data, size_t datalength, bool verbose) {
   BEST_TIME_CHECK("AVX2", fast_avx2_base64_encode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
   BEST_TIME_CHECK("AVX512VBMI", encode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
   BEST_TIME_CHECK("AVX512VL", encode_base64_avx512vl((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
+  BEST_TIME_NOCHECK("avx512_memcpy", avx512_memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
   free(buffer);
   if(verbose) printf("\n");
 }
@@ -50,7 +52,8 @@ void testdecode(const char * data, size_t datalength, bool verbose) {
   BEST_TIME("AVX512VBMI", decode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
   BEST_TIME("AVX512VBMI (unrolled)", decode_base64_avx512vbmi__unrolled((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
   BEST_TIME("AVX512VBMI (despacing)", decode_base64_avx512vbmi_despace((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
-
+  BEST_TIME_NOCHECK("avx512_memcpy", avx512_memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
+ 
 
   free(buffer);
   if(verbose) printf("\n");
