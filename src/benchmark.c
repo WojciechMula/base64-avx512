@@ -142,7 +142,7 @@ int main() {
   RDTSC_SET_OVERHEAD(rdtsc_overhead_func(1), repeat);
 
   printf("Testing first with random data.\n");
-  const int N = 2048 * 32;
+  const int N = 2048 * 16;
   char randombuffer[N];
   for(int k = 0; k < N; ++k) randombuffer[k] = rand();
   const char * decodingfilename = "decodingperf.txt";
@@ -154,7 +154,7 @@ int main() {
 
   printf("#displaying cycles per input bytes for memcpy and decoders: chromium, AVX2, AVX512VBMI; first column is number of bytes\n");
 
-  for(int l = 8; l <= N; l+=64) {
+  for(int l = 256; l <= N; l+=64) {
     printf("%d ",l);
     char * code = (char*) malloc(chromium_base64_encode_len(l));
     int codedlen = chromium_base64_encode(code, randombuffer, l);
@@ -168,7 +168,7 @@ int main() {
     printf("error opening %s \n", encodingfilename);
   }
   printf("#displaying cycles per input bytes for memcpy and encoders: chromium, AVX2, AVX512VBMI, AVX512VL, first column is number of bytes\n");
-  for(int l = 8; l <= N; l+=64) {
+  for(int l = 256; l <= N; l+=64) {
     printf("%d ",l);
     testencode(randombuffer, l, false);
     printf("\n");
