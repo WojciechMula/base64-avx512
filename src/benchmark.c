@@ -16,13 +16,14 @@
 #include "decode_base64_avx512vbmi__unrolled.h"
 #include "decode_base64_avx512vbmi_despace.h"
 #include "avx512memcpy.h"
+#include "memalloc.h"
 
-static const int repeat = 50;
-
+static const int repeat = 100;
+static const int alignment = 256;
 
 void testencode(const char * data, size_t datalength, bool verbose) {
   if(verbose) printf("encode a base64 input of  %zu bytes, ",datalength);
-  char * buffer = malloc(datalength * 2); // we allocate plenty of memory
+  char * buffer = aligned_malloc(alignment, datalength * 2);
   size_t expected =   chromium_base64_encode(buffer, data,  datalength);
   if(verbose) printf("encoded size = %zu \n",expected);
   BEST_TIME_NOCHECK("memcpy", memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
@@ -31,7 +32,7 @@ void testencode(const char * data, size_t datalength, bool verbose) {
   BEST_TIME_CHECK("AVX512VBMI", encode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
   BEST_TIME_CHECK("AVX512VL", encode_base64_avx512vl((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
   BEST_TIME_NOCHECK("avx512_memcpy", avx512_memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
-  free(buffer);
+  aligned_free(buffer);
   if(verbose) printf("\n");
 }
 
@@ -42,7 +43,7 @@ void testdecode(const char * data, size_t datalength, bool verbose) {
     printf("size should be divisible by 4 bytes.\n");
     return;
   }
-  char * buffer = malloc(datalength * 2); // we allocate plenty of memory
+  char * buffer = aligned_malloc(alignment, datalength * 2);
   size_t expected =  chromium_base64_decode(buffer, data,  datalength);
   if(verbose) printf("original size = %zu \n",expected);
   BEST_TIME_NOCHECK("memcpy", memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
@@ -55,7 +56,7 @@ void testdecode(const char * data, size_t datalength, bool verbose) {
   BEST_TIME_NOCHECK("avx512_memcpy", avx512_memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
  
 
-  free(buffer);
+  aligned_free(buffer);
   if(verbose) printf("\n");
 }
 
@@ -109,7 +110,7 @@ void test_real_data(bool removespaces) {
           printf(" final size = %zu \n", data.size);
         }
         testdecode(data.bytes, data.size, true);
-        free(data.bytes);
+        aligned_free(data.bytes);
         item++;
     }
 }
@@ -125,7 +126,7 @@ void load_file(const char* path, MemoryArray* data) {
     data->size = ftell(f);
     fseek(f, 0, SEEK_SET);
 
-    data->bytes = malloc(data->size);
+    data->bytes = aligned_malloc(alignment, data->size);
     if (data->bytes == NULL) {
         puts("allocation failed");
         exit(1);
@@ -159,10 +160,10 @@ int main() {
 
   for(int l = 256; l <= N; l+=64) {
     printf("%d ",l);
-    char * code = (char*) malloc(chromium_base64_encode_len(l));
+    char * code = (char*) aligned_malloc(alignment, chromium_base64_encode_len(l));
     int codedlen = chromium_base64_encode(code, randombuffer, l);
     testdecode(code, codedlen, false);
-    free(code);
+    aligned_free(code);
     printf("\n");
 
   }
