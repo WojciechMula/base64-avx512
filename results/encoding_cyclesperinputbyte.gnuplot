@@ -10,7 +10,7 @@ set xrange [STATS_min:STATS_max]
 set ytics 0.5
 set yrange [0:2]
 set key top right box opaque
-
+set xtics 4096
 plot "cnlencoding.txt" \
         using 1:2 ti "memcpy"           w lines   ls 1, \
      "" using 1:3 ti "Google Chrome"    w lines   ls 2, \
