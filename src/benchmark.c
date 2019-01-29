@@ -18,7 +18,7 @@
 #include "avx512memcpy.h"
 #include "memalloc.h"
 
-static const int repeat = 100;
+static const int repeat = 10;
 static const int alignment = 256;
 
 void testencode(const char * data, size_t datalength, bool verbose) {
