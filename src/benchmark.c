@@ -47,7 +47,8 @@ void testdecode(const char * data, size_t datalength, bool verbose) {
   size_t expected =  chromium_base64_decode(buffer, data,  datalength);
   if(verbose) printf("original size = %zu \n",expected);
   BEST_TIME_NOCHECK("memcpy", memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
-  BEST_TIME("Google chrome", chromium_base64_decode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
+  int large_repeat = repeat < 500 ? 500 : repeat;
+  BEST_TIME("Google chrome", chromium_base64_decode(buffer, data, datalength), (int) expected, , large_repeat , datalength,verbose);
 
   BEST_TIME("AVX2", fast_avx2_base64_decode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
   BEST_TIME("AVX512VBMI", decode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
