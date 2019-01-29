@@ -8,7 +8,7 @@ set ylabel "CPU cycles per input byte"
 stats 'cnldecoding.txt' using 1
 set xrange [STATS_min:STATS_max]
 set ytics 0.5
-set yrange [0:1.5]
+set yrange [0:1.0]
 set key top right box opaque
 
 plot "cnldecoding.txt" \
