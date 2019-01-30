@@ -1,6 +1,6 @@
 #ifndef _BENCHMARK_H_
 #define _BENCHMARK_H_
-
+#include <time.h>
 
 #define RDTSC_START(cycles)                                             \
     do {                                                                \
@@ -91,6 +91,26 @@ uint64_t global_rdtsc_overhead = (uint64_t) UINT64_MAX;
             if(!verbose) printf(" %.3f ", cycle_per_op);                   \
             fflush(NULL);                                                 \
  } while (0)
+
+#define MEASURE_SPEED(name, test,  repeat, sizeinbytes, verbose)       \
+        do {                                                              \
+            if(verbose) printf("%-60.60s\t: ", name);                     \
+            fflush(NULL);                                                 \
+            clock_t begin_time, end_time;          \
+            begin_time = clock(); \
+            for (int i = 0; i < repeat; i++) {                            \
+                __asm volatile("" ::: /* pretend to clobber */ "memory"); \
+                test;                                \
+            }                                                             \
+            end_time = clock();                                          \
+            double tv = (double)(end_time - begin_time) / CLOCKS_PER_SEC;                  \
+            double gb_per_s = ( sizeinbytes * repeat ) / ( tv * 1024 * 1024 * 1024.0 );   \
+            if(verbose) printf(" %.3f GB/s ", gb_per_s);   \
+            if(verbose) printf("\n");                                                 \
+            if(!verbose) printf(" %.3f ", gb_per_s);                   \
+            fflush(NULL);                                                 \
+ } while (0)
+
 
 // like BEST_TIME, but no check
 #define BEST_TIME_NOCHECK(name, test, pre, repeat, size, verbose)         \

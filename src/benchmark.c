@@ -32,6 +32,13 @@ void testencode(const char * data, size_t datalength, bool verbose) {
   BEST_TIME_CHECK("AVX512VBMI", encode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
   BEST_TIME_CHECK("AVX512VL", encode_base64_avx512vl((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
   BEST_TIME_NOCHECK("avx512_memcpy", avx512_memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
+  if(!verbose) printf("\t\t\t");
+  int speedrepeat = repeat * 10;
+  MEASURE_SPEED("memcpy", memcpy(buffer, data, datalength), speedrepeat, datalength,verbose);
+  MEASURE_SPEED("Google chrome", chromium_base64_encode(buffer, data, datalength) , speedrepeat, datalength,verbose);
+  MEASURE_SPEED("AVX2", fast_avx2_base64_encode(buffer, data, datalength), speedrepeat, datalength,verbose);
+  MEASURE_SPEED("AVX512VBMI", encode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), speedrepeat, datalength,verbose);
+  MEASURE_SPEED("AVX512VL", encode_base64_avx512vl((uint8_t*)buffer, (const uint8_t*)data, datalength) , speedrepeat, datalength,verbose);
   aligned_free(buffer);
   if(verbose) printf("\n");
 }
@@ -53,10 +60,15 @@ void testdecode(const char * data, size_t datalength, bool verbose) {
   BEST_TIME("AVX2", fast_avx2_base64_decode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
   BEST_TIME("AVX512VBMI", decode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
   BEST_TIME("AVX512VBMI (unrolled)", decode_base64_avx512vbmi__unrolled((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
-  BEST_TIME("AVX512VBMI (despacing)", decode_base64_avx512vbmi_despace((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
+  BEST_TIME_NOCHECK("AVX512VBMI (despacing)", decode_base64_avx512vbmi_despace((uint8_t*)buffer, (const uint8_t*)data, datalength), , repeat, datalength,verbose);
   BEST_TIME_NOCHECK("avx512_memcpy", avx512_memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
- 
-
+  if(!verbose) printf("\t\t\t");
+  MEASURE_SPEED("memcpy", memcpy(buffer, data, datalength), large_repeat, datalength,verbose);
+  MEASURE_SPEED("Google chrome", chromium_base64_decode(buffer, data, datalength) , large_repeat, datalength,verbose);
+  MEASURE_SPEED("AVX2", fast_avx2_base64_decode(buffer, data, datalength), large_repeat, datalength,verbose);
+  MEASURE_SPEED("AVX512VBMI", decode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), large_repeat, datalength,verbose);
+  MEASURE_SPEED("AVX512VBMI (unrolled)", decode_base64_avx512vbmi__unrolled((uint8_t*)buffer, (const uint8_t*)data, datalength), large_repeat, datalength,verbose);
+  MEASURE_SPEED("AVX512VBMI (despacing)", decode_base64_avx512vbmi_despace((uint8_t*)buffer, (const uint8_t*)data, datalength),  large_repeat, datalength,verbose);
   aligned_free(buffer);
   if(verbose) printf("\n");
 }
