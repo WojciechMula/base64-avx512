@@ -1,7 +1,8 @@
 # we target only AVX512VBMI Cannon Lake CPU
 
-FLAGS=$(CFLAGS) -O3 -std=c99 -Wall -Wextra -pedantic -march=native -I./include
-FLAGS=$(CFLAGS) -O3 -std=c99 -Wall -Wextra -pedantic -march=cannonlake -I./include
+FLAGS=$(CFLAGS) -O3 -ftree-vectorize -funroll-loops -std=c99 -Wall -Wextra -pedantic -I./include
+FLAGS+=-march=native
+#FLAGS+=-march=cannonlake
 
 BASE64=obj/chromiumbase64.o\
        obj/fastavxbase64.o\
