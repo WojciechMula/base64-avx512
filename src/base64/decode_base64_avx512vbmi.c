@@ -5,10 +5,11 @@
     - https://github.com/WojciechMula/base64simd/blob/master/decode/pack.avx512bw.cpp
 */
 #include "decode_base64_avx512vbmi.h"
-#include "chromiumbase64.h"
 
 #include <assert.h>
 #include <immintrin.h>
+
+#include "decode_base64_tail_avx512vbmi.c"
 
 // Note: constants lookup_lo, lookup_hi, pack were
 // generated with scripts/avx512vbmi_decode_lookups.py
@@ -64,7 +65,9 @@ size_t decode_base64_avx512vbmi(uint8_t* dst, const uint8_t* src, size_t size) {
         size -= 64;
     }
 
-    size_t scalar = chromium_base64_decode((char*)dst, (const char*)src, size);
-    if (scalar == MODP_B64_ERROR) return MODP_B64_ERROR;
+    int scalar = decode_base64_tail_avx512vbmi(dst, src, size);
+    if (scalar < 0)
+        return (size_t)-1;
+
     return (dst - start) + scalar;
 }
