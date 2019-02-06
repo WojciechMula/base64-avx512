@@ -6,6 +6,7 @@ perf.data*
 
 # executables
 unit
+unit_tail
 unit_despace
 benchmark
 benchmark_despace

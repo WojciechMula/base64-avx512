@@ -1,8 +1,8 @@
 # we target only AVX512VBMI Cannon Lake CPU
 
 FLAGS=$(CFLAGS) -O3 -ftree-vectorize -funroll-loops -std=c99 -Wall -Wextra -pedantic -I./include
-FLAGS+=-march=native
-#FLAGS+=-march=cannonlake
+#FLAGS+=-march=native
+FLAGS+=-march=cannonlake
 
 BASE64=obj/chromiumbase64.o\
        obj/fastavxbase64.o\
@@ -45,6 +45,9 @@ obj/decode_base64_avx512vbmi_despace.o: src/base64/decode_base64_avx512vbmi_desp
 
 unit: src/unit.c $(BASE64)
 	$(CC) $(FLAGS) $< $(BASE64) -o $@
+
+unit_tail: src/unit_tail.c src/base64/decode_base64_tail_avx512vbmi.c obj/chromiumbase64.o
+	$(CC) $(FLAGS) $< obj/chromiumbase64.o -o $@
 
 unit_despace: src/unit_despace.c $(BASE64)
 	$(CC) $(FLAGS) $< $(BASE64) -o $@
