@@ -1,6 +1,11 @@
 # we target only AVX512VBMI Cannon Lake CPU
 
-FLAGS=$(CFLAGS) -O3 -ftree-vectorize -funroll-loops -std=c99 -Wall -Wextra -pedantic -I./include
+########
+# I do not think one should use  '-funroll-loops' as it may harm some operations.
+#######
+## Similarly, it seems that -ftree-vectorize is not obviously useful.
+######
+FLAGS=$(CFLAGS) -O3 -std=c99 -Wall -Wextra -pedantic -I./include
 #FLAGS+=-march=native
 FLAGS+=-march=cannonlake
 
