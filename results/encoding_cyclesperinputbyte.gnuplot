@@ -1,19 +1,20 @@
+reset
 load "linespointsstyle.gnuplot"
 set style line 81 lt 0  # dashed
 set style line 81 lt rgb "#808080"  # grey
 set grid back linestyle 81
-set xlabel "input bytes"
+set xlabel "input kilobytes"
 set ylabel "CPU cycles per input byte"
 
 stats 'cnlencoding.txt' using 1
-set xrange [STATS_min:STATS_max]
+set xrange [STATS_min/1024:STATS_max/1024]
 set ytics 0.5
 set yrange [0:2]
-set key top right box opaque
-set xtics 4096
+set key center right  opaque
+set xtics 4
 plot "cnlencoding.txt" \
-        using 1:2 ti "memcpy"           w lines   ls 1, \
-     "" using 1:3 ti "Google Chrome"    w lines   ls 2, \
-     "" using 1:4 ti "AVX2"             w lines   ls 3, \
-     "" using 1:5 ti "AVX512VBMI"       w lines  ls 4, \
-     "" using 1:6 ti "AVX512VL"         w lines  ls 5
+     using ($1/1024):1+3*1+2 ti "Google Chrome"    smooth cspline   ls 2, \
+     "" using ($1/1024):1+3*2+2 ti "AVX2"             smooth cspline   ls 3, \
+     "" using ($1/1024):1+3*4+2 ti "AVX512VL"         smooth cspline  ls 5, \
+     "" using ($1/1024):1+3*0+2 ti "memcpy"           smooth cspline  ls 1
+
