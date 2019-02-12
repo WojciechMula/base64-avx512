@@ -9,5 +9,6 @@ unit
 unit_tail
 unit_despace
 benchmark
+benchmark_email
 benchmark_despace
 

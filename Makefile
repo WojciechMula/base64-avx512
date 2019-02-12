@@ -21,6 +21,7 @@ ALL=$(BASE64)\
     unit\
     unit_despace\
     benchmark\
+    benchmark_email\
     benchmark_despace
 
 # ------------------------------------------------------------
@@ -61,6 +62,9 @@ benchmark: src/benchmark.c src/benchmark.h $(BASE64)
 	$(CC) $(FLAGS) $< $(BASE64) -o $@
 
 benchmark_despace: src/benchmark_despace.c src/benchmark.h $(BASE64)
+	$(CC) $(FLAGS) $< $(BASE64) -o $@
+
+benchmark_email: src/benchmark_email.c src/benchmark.h $(BASE64)
 	$(CC) $(FLAGS) $< $(BASE64) -o $@
 
 # ------------------------------------------------------------

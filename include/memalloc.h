@@ -1,6 +1,9 @@
 #ifndef MEMALIGN_H
 #define MEMALIGN_H
 
+#include <stddef.h>
+#include <stdlib.h>
+
 // portable version of  posix_memalign
 static inline void *aligned_malloc(size_t alignment, size_t size) {
 	void *p;
