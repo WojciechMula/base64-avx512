@@ -17,8 +17,16 @@
 #include "memalloc.h"
 #include "load_file.h"
 #include "decode_base64_avx512vbmi_despace.h"
+#include <sys/time.h>
 
-void dump(const char* str, int size) {
+static uint64_t clock(void) {
+        static struct timeval T;
+        gettimeofday(&T, NULL);
+        return (T.tv_sec * 1000000) + T.tv_usec;
+}
+
+
+static void dump(const char* str, int size) {
     putchar('\"');
     for (int i=0; i < size; i++) {
         char c = str[i];
@@ -37,7 +45,7 @@ typedef void (*consume_attachment_function)(const uint8_t* input, size_t size, v
 
 // Note that we're going to modify data-inplace!
 // It's way easier and faster than making copies.
-int decode_email(char* data, size_t size, consume_attachment_function consume, void* extra) {
+void decode_email(char* data, size_t size, consume_attachment_function consume, void* extra) {
     
     char* cursor = data;
     char* end    = data + size;
@@ -52,6 +60,8 @@ int decode_email(char* data, size_t size, consume_attachment_function consume, v
         if (*cursor == '\n')                            \
             cursor++;                                   \
     } while (0);
+
+    const uint64_t t_start = clock();
 
     while (cursor < end) {
 
@@ -69,14 +79,16 @@ int decode_email(char* data, size_t size, consume_attachment_function consume, v
         if (linelen == 0) {
             puts("detected BASE64 data");
             uint8_t* src_ptr = (uint8_t*)cursor;
-            const size_t k = decode_base64_avx512vbmi_despace_email(cursor, &src_ptr, end - cursor);
+            const uint64_t t1 = clock();
+            const size_t k = decode_base64_avx512vbmi_despace_email((uint8_t*)cursor, &src_ptr, end - cursor);
+            const uint64_t t2 = clock();
             if (k == (size_t)-1) {
-                printf("... BASE64 data is broken (the current offset is %llu)\n", cursor - data);
+                printf("... BASE64 data is broken (the current offset is %lu)\n", cursor - data);
                 exit(2);
             } else {
-                printf("... decoded %llu bytes\n", k);
+                printf("... decoded %lu bytes in %lu us\n", k, t2 - t1);
                 if (consume != NULL) {
-                    consume(cursor, k, extra);
+                    consume((uint8_t*)cursor, k, extra);
                 }
             }
 
@@ -85,13 +97,13 @@ int decode_email(char* data, size_t size, consume_attachment_function consume, v
                 cursor++;
 
             SKIP_LINE;
-            assert(linelen == 0);
             SKIP_LINE;
-            assert(linelen > 0);
         }
     }
+    
+    const uint64_t t_end = clock();
 
-    return 0;
+    printf("Whole procedure completed in %lu us\n", t_end - t_start);
 }
 
 void save_attachment(const uint8_t* input, size_t size, void* extra) {
@@ -118,7 +130,7 @@ int main(int argc, char* argv[]) {
     
     if (argc != 2) {
         usage(argv[0]);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     const char* inputfile = argv[1];
@@ -130,4 +142,6 @@ int main(int argc, char* argv[]) {
 
     int number = 0;
     decode_email(email.bytes, email.size, save_attachment, &number);
+
+    return EXIT_SUCCESS;
 }
