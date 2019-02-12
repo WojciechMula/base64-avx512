@@ -26,21 +26,6 @@ static uint64_t clock(void) {
 }
 
 
-static void dump(const char* str, int size) {
-    putchar('\"');
-    for (int i=0; i < size; i++) {
-        char c = str[i];
-        switch (c) {
-            case '\n':
-                printf("\\n");
-                break;
-            default:
-                putchar(c);
-        } 
-    }
-    puts("\"");
-}
-
 typedef void (*consume_attachment_function)(const uint8_t* input, size_t size, void* extra);
 
 // Note that we're going to modify data-inplace!
