@@ -15,7 +15,7 @@
 #include <assert.h>
 
 #include "memalloc.h"
-
+#include "load_file.h"
 #include "decode_base64_avx512vbmi_despace.h"
 
 void dump(const char* str, int size) {
@@ -93,8 +93,6 @@ int decode_email(char* data, size_t size, consume_attachment_function consume, v
 
     return 0;
 }
-
-#include "load_file.c"
 
 void save_attachment(const uint8_t* input, size_t size, void* extra) {
     

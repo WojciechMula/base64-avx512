@@ -1,4 +1,6 @@
-#include <stddef.h>
+#include "load_file.h"
+#include "memalloc.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,11 +8,6 @@
 #include <errno.h>
 
 static const int alignment = 2048;
-
-typedef struct MemoryArray {
-    char*  bytes;
-    size_t size;
-} MemoryArray;
 
 void load_file(const char* path, MemoryArray* data) {
     FILE* f = fopen(path, "rb");

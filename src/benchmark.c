@@ -17,6 +17,7 @@
 #include "decode_base64_avx512vbmi_despace.h"
 #include "avx512memcpy.h"
 #include "memalloc.h"
+#include "load_file.h"
 
 static const int repeat = 100;
 static const int alignment = 2048;
@@ -80,13 +81,6 @@ typedef struct RealData {
     const char* path;
 } RealData;
 
-typedef struct MemoryArray {
-    char*  bytes;
-    size_t size;
-} MemoryArray;
-
-void load_file(const char* path, MemoryArray* data);
-
 RealData real_data[] = {
     {"lena [jpg]",              "data/lena_color_512.base64"},
     {"peppers [jpg]",           "data/peppers_color.base64"},
@@ -129,32 +123,6 @@ void test_real_data(bool removespaces) {
         item++;
     }
 }
-
-void load_file(const char* path, MemoryArray* data) {
-    FILE* f = fopen(path, "rb");
-    if (f == NULL) {
-        printf("Can't open '%s': %s\n", path, strerror(errno));
-        exit(1);
-    }
-
-    fseek(f, 0, SEEK_END);
-    data->size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-
-    data->bytes = aligned_malloc(alignment, data->size);
-    if (data->bytes == NULL) {
-        puts("allocation failed");
-        exit(1);
-    }
-
-    if (fread(data->bytes, 1, data->size, f) != data->size) {
-        printf("Error reading '%s': %s\n", path, strerror(errno));
-        exit(1);
-    }
-
-    fclose(f);
-}
-
 
 
 int main() {

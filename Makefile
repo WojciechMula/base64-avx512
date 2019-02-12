@@ -17,6 +17,8 @@ BASE64=obj/chromiumbase64.o\
        obj/decode_base64_avx512vbmi_despace.o\
        obj/decode_base64_avx512vbmi__unrolled.o
 
+HELPERS=obj/load_file.o
+
 ALL=$(BASE64)\
     unit\
     unit_despace\
@@ -49,6 +51,13 @@ obj/decode_base64_avx512vbmi__unrolled.o: src/base64/decode_base64_avx512vbmi__u
 obj/decode_base64_avx512vbmi_despace.o: src/base64/decode_base64_avx512vbmi_despace.c include/decode_base64_avx512vbmi_despace.h
 	$(CC) $(FLAGS) $< -c -o $@
 
+# ------------------------------------------------------------
+
+obj/load_file.o: src/load_file.c include/load_file.h
+	$(CC) $(FLAGS) $< -c -o $@
+
+# ------------------------------------------------------------
+
 unit: src/unit.c $(BASE64)
 	$(CC) $(FLAGS) $< $(BASE64) -o $@
 
@@ -58,14 +67,14 @@ unit_tail: src/unit_tail.c src/base64/decode_base64_tail_avx512vbmi.c obj/chromi
 unit_despace: src/unit_despace.c $(BASE64)
 	$(CC) $(FLAGS) $< $(BASE64) -o $@
 
-benchmark: src/benchmark.c src/benchmark.h $(BASE64)
-	$(CC) $(FLAGS) $< $(BASE64) -o $@
+benchmark: src/benchmark.c src/benchmark.h $(BASE64) $(HELPERS)
+	$(CC) $(FLAGS) $< $(BASE64) $(HELPERS) -o $@
 
 benchmark_despace: src/benchmark_despace.c src/benchmark.h $(BASE64)
 	$(CC) $(FLAGS) $< $(BASE64) -o $@
 
-benchmark_email: src/benchmark_email.c src/benchmark.h $(BASE64)
-	$(CC) $(FLAGS) $< $(BASE64) -o $@
+benchmark_email: src/benchmark_email.c src/benchmark.h $(BASE64) $(HELPERS)
+	$(CC) $(FLAGS) $< $(BASE64) $(HELPERS) -o $@
 
 # ------------------------------------------------------------
 
