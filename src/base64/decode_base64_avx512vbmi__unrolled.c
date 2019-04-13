@@ -21,6 +21,8 @@ size_t decode_base64_avx512vbmi__unrolled(uint8_t* dst, const uint8_t* src, size
                                 0x2c2b2a29, 0x302f2e2d, 0x80333231, 0x80808080);
 
     uint8_t* start = dst;
+    const int OR_ALL = 0xfe; // function "a or b or c"
+    __m512i errorvec = _mm512_setzero_si512();
     while (size >= 64*4) {
 
         // 1. load input
@@ -36,12 +38,10 @@ size_t decode_base64_avx512vbmi__unrolled(uint8_t* dst, const uint8_t* src, size
         __m512i translated3 = _mm512_permutex2var_epi8(lookup_0, input3, lookup_1);
 
         // 2a. check for errors --- convert MSBs to a mask
-        const int OR_ALL = 0xfe;
         const __m512i t0 = _mm512_ternarylogic_epi32(input0, input1, input2, OR_ALL);
         const __m512i t1 = _mm512_ternarylogic_epi32(input3, translated0, translated1, OR_ALL);
         const __m512i t2 = _mm512_ternarylogic_epi32(translated2, translated3, t0, OR_ALL);
-        const uint64_t mask = _mm512_movepi8_mask(t1 | t2);
-        if (mask != 0) break;
+        errorvec = _mm512_ternarylogic_epi32(t0, t1, t2, OR_ALL);
 
         // 3. pack four 6-bit values into 24-bit words (all within 32-bit lanes)
         // Note: exactly the same procedure as we have in AVX2 version
@@ -92,8 +92,7 @@ size_t decode_base64_avx512vbmi__unrolled(uint8_t* dst, const uint8_t* src, size
         __m512i translated = _mm512_permutex2var_epi8(lookup_0, input, lookup_1);
 
         // 2a. check for errors --- convert MSBs to a mask
-        const uint64_t mask = _mm512_test_epi8_mask(translated | input, _mm512_set1_epi8((int8_t)0x80));
-        if (mask != 0) break;
+        errorvec = _mm512_ternarylogic_epi32(errorvec, translated, input, OR_ALL);
 
         // 3. pack four 6-bit values into 24-bit words (all within 32-bit lanes)
         // Note: exactly the same procedure as we have in AVX2 version
@@ -120,7 +119,12 @@ size_t decode_base64_avx512vbmi__unrolled(uint8_t* dst, const uint8_t* src, size
         size -= 64;
     }
 
+    if (_mm512_movepi8_mask(errorvec) != 0)
+        return (size_t)-1;
+
     size_t scalar = chromium_base64_decode((char*)dst, (const char*)src, size);
-    if (scalar == MODP_B64_ERROR) return MODP_B64_ERROR;
+    if (scalar == MODP_B64_ERROR)
+        return (size_t)-1;
+
     return (dst - start) + scalar;
 }
