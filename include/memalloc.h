@@ -1,5 +1,4 @@
-#ifndef MEMALIGN_H
-#define MEMALIGN_H
+#pragma once
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -12,8 +11,8 @@ static inline void *aligned_malloc(size_t alignment, size_t size) {
 #elif defined(__MINGW32__) || defined(__MINGW64__)
 	p = __mingw_aligned_malloc(size, alignment);
 #else
-	// somehow, if this is used before including "x86intrin.h", it creates an
-	// implicit defined warning.
+	// Define _POSIX_C_SOURCE 200212L before the first include
+	// of stdlib.h in order to avoid warning "implicit defined fun".
 	if (posix_memalign(&p, alignment, size) != 0) return NULL;
 #endif
 	return p;
@@ -30,4 +29,3 @@ static inline void aligned_free(void *memblock) {
 #endif
 }
 
-#endif

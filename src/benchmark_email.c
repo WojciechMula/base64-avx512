@@ -10,6 +10,8 @@
     back to disc) and carry on parsing.
  
 */
+#define _POSIX_C_SOURCE 200212L // enable posix_memalign
+
 #include <stddef.h>
 #include <stdio.h>
 #include <assert.h>
@@ -108,7 +110,7 @@ void save_attachment(const uint8_t* input, size_t size, void* extra) {
 void usage(const char* progname) {
     printf("Usage: %s FILE\n", progname);
     puts("");
-    puts("FILE is a e-mail like message produced by scripts/email-generator.py");
+    puts("FILE is an e-mail like message produced by scripts/email-generator.py");
 }
 
 int main(int argc, char* argv[]) {

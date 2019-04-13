@@ -11,6 +11,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include <immintrin.h>
 
 // Note: constants lookup_lo, lookup_hi, pack were
