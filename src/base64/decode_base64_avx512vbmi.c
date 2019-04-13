@@ -28,6 +28,7 @@ size_t decode_base64_avx512vbmi(uint8_t* dst, const uint8_t* src, size_t size) {
                                 0x2c2b2a29, 0x302f2e2d, 0x80333231, 0x80808080);
 
     uint8_t* start = dst;
+    __m512i errorvec = _mm512_setzero_si512();
     while (size >= 64) {
 
         // 1. load input
@@ -37,8 +38,9 @@ size_t decode_base64_avx512vbmi(uint8_t* dst, const uint8_t* src, size_t size) {
         __m512i translated = _mm512_permutex2var_epi8(lookup_0, input, lookup_1);
 
         // 2a. check for errors --- convert MSBs to a mask
-        const uint64_t mask = _mm512_test_epi8_mask(translated | input, _mm512_set1_epi8((int8_t)0x80));
-        if (mask != 0) break;
+        //const uint64_t mask = _mm512_test_epi8_mask(translated | input, _mm512_set1_epi8((int8_t)0x80));
+        //if (mask != 0) break;
+        errorvec = _mm512_or_si512(errorvec, _mm512_or_si512(translated,input)); // could be done with ternary?
 
         // 3. pack four 6-bit values into 24-bit words (all within 32-bit lanes)
         // Note: exactly the same procedure as we have in AVX2 version
@@ -64,7 +66,8 @@ size_t decode_base64_avx512vbmi(uint8_t* dst, const uint8_t* src, size_t size) {
         dst += 48;
         size -= 64;
     }
-
+    const __mmask64 errormask = _mm512_movepi8_mask(errorvec);
+    if (errormask != 0) return (size_t)-1;
     int scalar = decode_base64_tail_avx512vbmi(dst, src, size);
     if (scalar < 0)
         return (size_t)-1;
