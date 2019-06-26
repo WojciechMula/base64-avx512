@@ -7,3 +7,5 @@ can be selected by the command `export CC=gcc-8`.
 ```
 make
 ```
+
+You should have a Cannon Lake processor or better.
