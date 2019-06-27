@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <dirent.h>
 
 #include "benchmark.h"
 #include "chromiumbase64.h"
@@ -127,16 +128,46 @@ void test_real_data(bool removespaces) {
 }
 
 
-int main() {
+int main(int argc, char *argv[]) {
   RDTSC_SET_OVERHEAD(rdtsc_overhead_func(1), repeat);
-
+  char * outputdir = ".";
+  if(argc > 1) {
+    outputdir = argv[1];
+    printf("Outputting results to directory %s.\n", outputdir);
+    DIR* dir = opendir(outputdir);
+    if (dir) {
+      closedir(dir);
+    } else {
+      printf("I can't open the directory.\n");
+      return EXIT_FAILURE;
+    }
+  }
   printf("Testing first with random data.\n");
   const int N = 2048 * 16;
   char randombuffer[N];
   for(int k = 0; k < N; ++k) randombuffer[k] = rand();
-  const char * decodingfilename = "decodingperf.txt";
-  const char * encodingfilename = "encodingperf.txt";
-  printf("See files %s %s ... \n", encodingfilename,decodingfilename);
+  size_t dirlen = strlen(outputdir);
+  if(dirlen > 128) {
+    printf("Your directory path is too long.\n");
+    return EXIT_FAILURE;
+  }
+  char decodingfilename[256];
+  const char * decodingfilenamej = "decodingperf.txt";
+  strcpy(decodingfilename, outputdir);
+  decodingfilename[dirlen] = '/';
+  strcpy(decodingfilename + dirlen + 1, decodingfilenamej);
+  char encodingfilename[256];
+  const char * encodingfilenamej = "encodingperf.txt";
+  strcpy(encodingfilename, outputdir);
+  encodingfilename[dirlen] = '/';
+  strcpy(encodingfilename + dirlen + 1, encodingfilenamej);
+  char realfilename[256];
+  const char * realfilenamej = "realperf.txt";
+  strcpy(realfilename, outputdir);
+  realfilename[dirlen] = '/';
+  strcpy(realfilename + dirlen + 1, realfilenamej);
+    
+  printf("See files %s %s %s... \n", encodingfilename,decodingfilename,realfilename);
   if ( freopen(decodingfilename,"w",stdout) == NULL) {
     printf("error opening %s \n", decodingfilename);
   }
@@ -164,15 +195,18 @@ int main() {
     testencode(randombuffer, l, false);
     printf("\n");
   }
+  if ( freopen(realfilename,"w",stdout) == NULL) {
+    printf("error opening %s \n", realfilename);
+  }
+ 
+  printf("Testing with real data.\n");
+  bool removespaces = true;
+  test_real_data(removespaces);
   const char * ttystr = "/dev/tty";
   if ( freopen(ttystr,"w",stdout) == NULL ) {
      printf("error opening %s \n", ttystr);
   }
-
-  printf("Testing with real data.\n");
-  bool removespaces = true;
-  test_real_data(removespaces);
-
+  printf("Done.\n");
   return EXIT_SUCCESS;
 }
 
