@@ -3,53 +3,53 @@ lena [jpg]
 loading file data/lena_color_512.base64 
 removing spaces (as a preliminary step), init size = 142876,  final size = 141020 
 decoding a base64 input of  141020 bytes, original size = 105764 
-memcpy                                                      	:  0.065 cycles per operation (best) 	0.073 cycles per operation (avg) 
-Google chrome                                               	:  0.772 cycles per operation (best) 	0.782 cycles per operation (avg) 
-AVX2                                                        	:  0.141 cycles per operation (best) 	0.144 cycles per operation (avg) 
-AVX512VBMI                                                  	:  0.064 cycles per operation (best) 	0.067 cycles per operation (avg) 
-AVX512VBMI (unrolled)                                       	:  0.061 cycles per operation (best) 	0.062 cycles per operation (avg) 
+memcpy                                                      	:  0.068 cycles per operation (best) 	0.124 cycles per operation (avg) 
+Google chrome                                               	:  0.774 cycles per operation (best) 	0.775 cycles per operation (avg) 
+AVX2                                                        	:  0.142 cycles per operation (best) 	0.167 cycles per operation (avg) 
+AVX512VBMI                                                  	:  0.063 cycles per operation (best) 	0.080 cycles per operation (avg) 
+AVX512VBMI (unrolled)                                       	:  0.059 cycles per operation (best) 	0.061 cycles per operation (avg) 
 AVX512VBMI (despacing)                                      	:  0.090 cycles per operation (best) 	0.091 cycles per operation (avg) 
-avx512_memcpy                                               	:  0.068 cycles per operation (best) 	0.070 cycles per operation (avg) 
-memcpy                                                      	:  30.452 GB/s 
-Google chrome                                               	:  2.644 GB/s 
-AVX2                                                        	:  14.406 GB/s 
-AVX512VBMI                                                  	:  31.419 GB/s 
-AVX512VBMI (unrolled)                                       	:  33.130 GB/s 
-AVX512VBMI (despacing)                                      	:  22.468 GB/s 
+avx512_memcpy                                               	:  0.072 cycles per operation (best) 	0.073 cycles per operation (avg) 
+memcpy                                                      	:  29.580 GB/s 
+Google chrome                                               	:  2.566 GB/s 
+AVX2                                                        	:  14.214 GB/s 
+AVX512VBMI                                                  	:  31.196 GB/s 
+AVX512VBMI (unrolled)                                       	:  30.331 GB/s 
+AVX512VBMI (despacing)                                      	:  22.412 GB/s 
 
 mandril [jpg]
 loading file data/mandril_color.base64 
 removing spaces (as a preliminary step), init size = 333970,  final size = 329632 
 decoding a base64 input of  329632 bytes, original size = 247222 
-memcpy                                                      	:  0.090 cycles per operation (best) 	0.094 cycles per operation (avg) 
-Google chrome                                               	:  0.774 cycles per operation (best) 	0.783 cycles per operation (avg) 
-AVX2                                                        	:  0.143 cycles per operation (best) 	0.145 cycles per operation (avg) 
-AVX512VBMI                                                  	:  0.084 cycles per operation (best) 	0.088 cycles per operation (avg) 
-AVX512VBMI (unrolled)                                       	:  0.082 cycles per operation (best) 	0.083 cycles per operation (avg) 
+memcpy                                                      	:  0.091 cycles per operation (best) 	0.107 cycles per operation (avg) 
+Google chrome                                               	:  0.774 cycles per operation (best) 	0.808 cycles per operation (avg) 
+AVX2                                                        	:  0.144 cycles per operation (best) 	0.157 cycles per operation (avg) 
+AVX512VBMI                                                  	:  0.085 cycles per operation (best) 	0.092 cycles per operation (avg) 
+AVX512VBMI (unrolled)                                       	:  0.084 cycles per operation (best) 	0.084 cycles per operation (avg) 
 AVX512VBMI (despacing)                                      	:  0.100 cycles per operation (best) 	0.101 cycles per operation (avg) 
-avx512_memcpy                                               	:  0.099 cycles per operation (best) 	0.099 cycles per operation (avg) 
-memcpy                                                      	:  22.695 GB/s 
-Google chrome                                               	:  2.640 GB/s 
-AVX2                                                        	:  14.241 GB/s 
-AVX512VBMI                                                  	:  24.210 GB/s 
-AVX512VBMI (unrolled)                                       	:  24.583 GB/s 
-AVX512VBMI (despacing)                                      	:  20.386 GB/s 
+avx512_memcpy                                               	:  0.099 cycles per operation (best) 	0.100 cycles per operation (avg) 
+memcpy                                                      	:  22.623 GB/s 
+Google chrome                                               	:  2.605 GB/s 
+AVX2                                                        	:  14.160 GB/s 
+AVX512VBMI                                                  	:  23.724 GB/s 
+AVX512VBMI (unrolled)                                       	:  24.249 GB/s 
+AVX512VBMI (despacing)                                      	:  20.331 GB/s 
 
 google logo [png]
 loading file data/googlelogo.base64 
 removing spaces (as a preliminary step), init size = 3186,  final size = 3144 
 decoding a base64 input of  3144 bytes, original size = 2357 
-memcpy                                                      	:  0.011 cycles per operation (best) 	0.014 cycles per operation (avg) 
-Google chrome                                               	:  0.756 cycles per operation (best) 	0.780 cycles per operation (avg) 
-AVX2                                                        	:  0.137 cycles per operation (best) 	0.173 cycles per operation (avg) 
-AVX512VBMI                                                  	:  0.040 cycles per operation (best) 	0.061 cycles per operation (avg) 
-AVX512VBMI (unrolled)                                       	:  0.038 cycles per operation (best) 	0.040 cycles per operation (avg) 
-AVX512VBMI (despacing)                                      	:  0.076 cycles per operation (best) 	0.079 cycles per operation (avg) 
-avx512_memcpy                                               	:  0.000 cycles per operation (best) 	0.001 cycles per operation (avg) 
-memcpy                                                      	:  84.872 GB/s 
-Google chrome                                               	:  2.620 GB/s 
-AVX2                                                        	:  13.172 GB/s 
-AVX512VBMI                                                  	:  39.784 GB/s 
-AVX512VBMI (unrolled)                                       	:  41.533 GB/s 
-AVX512VBMI (despacing)                                      	:  22.751 GB/s 
+memcpy                                                      	:  0.017 cycles per operation (best) 	0.033 cycles per operation (avg) 
+Google chrome                                               	:  0.763 cycles per operation (best) 	0.772 cycles per operation (avg) 
+AVX2                                                        	:  0.143 cycles per operation (best) 	0.152 cycles per operation (avg) 
+AVX512VBMI                                                  	:  0.045 cycles per operation (best) 	0.049 cycles per operation (avg) 
+AVX512VBMI (unrolled)                                       	:  0.044 cycles per operation (best) 	0.049 cycles per operation (avg) 
+AVX512VBMI (despacing)                                      	:  0.081 cycles per operation (best) 	0.087 cycles per operation (avg) 
+avx512_memcpy                                               	:  0.003 cycles per operation (best) 	0.011 cycles per operation (avg) 
+memcpy                                                      	:  48.801 GB/s 
+Google chrome                                               	:  2.568 GB/s 
+AVX2                                                        	:  11.712 GB/s 
+AVX512VBMI                                                  	:  29.281 GB/s 
+AVX512VBMI (unrolled)                                       	:  32.534 GB/s 
+AVX512VBMI (despacing)                                      	:  19.521 GB/s 
 

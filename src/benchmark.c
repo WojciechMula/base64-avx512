@@ -22,15 +22,22 @@
 #include "memalloc.h"
 #include "load_file.h"
 
-static const int repeat = 100;
+static const int repeat = 10;
 static const int alignment = 2048;
+
+// to void inlining!
+// just a wrapper around memcpy... 
+__attribute__ ((noinline))
+void * copy(void *restrict dst, const void *restrict src, size_t n) {
+  return memcpy(dst, src,n);
+}
 
 void testencode(const char * data, size_t datalength, bool verbose) {
   if(verbose) printf("encode a base64 input of  %zu bytes, ",datalength);
   char * buffer = aligned_malloc(alignment, datalength * 2);
   size_t expected =   chromium_base64_encode(buffer, data,  datalength);
   if(verbose) printf("encoded size = %zu \n",expected);
-  BEST_TIME_NOCHECK("memcpy", memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
+  BEST_TIME_NOCHECK("memcpy", copy(buffer, data, datalength),  , repeat, datalength,verbose);
   BEST_TIME("Google chrome", chromium_base64_encode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
   BEST_TIME_CHECK("AVX2", fast_avx2_base64_encode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
   BEST_TIME_CHECK("AVX512VBMI", encode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), (int) expected, , repeat, datalength,verbose);
@@ -39,7 +46,7 @@ void testencode(const char * data, size_t datalength, bool verbose) {
   if(!verbose) printf("\t\t\t");
   int speedrepeat = repeat ;
   int statspeed = 10;
-  MEASURE_SPEED("memcpy", memcpy(buffer, data, datalength), speedrepeat, statspeed, datalength,verbose);
+  MEASURE_SPEED("memcpy", copy(buffer, data, datalength), speedrepeat, statspeed, datalength,verbose);
   MEASURE_SPEED("Google chrome", chromium_base64_encode(buffer, data, datalength) , speedrepeat, statspeed, datalength,verbose);
   MEASURE_SPEED("AVX2", fast_avx2_base64_encode(buffer, data, datalength), speedrepeat, statspeed, datalength,verbose);
   MEASURE_SPEED("AVX512VBMI", encode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), speedrepeat, statspeed, datalength,verbose);
@@ -58,8 +65,8 @@ void testdecode(const char * data, size_t datalength, bool verbose) {
   char * buffer = aligned_malloc(alignment, datalength * 2);
   size_t expected =  chromium_base64_decode(buffer, data,  datalength);
   if(verbose) printf("original size = %zu \n",expected);
-  BEST_TIME_NOCHECK("memcpy", memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
-  int large_repeat = repeat < 1000 ? 1000 : repeat;
+  BEST_TIME_NOCHECK("memcpy", copy(buffer, data, datalength),  , repeat, datalength,verbose);
+  int large_repeat = repeat; // < 1000 ? 1000 : repeat;
   BEST_TIME("Google chrome", chromium_base64_decode(buffer, data, datalength), (int) expected, , large_repeat , datalength,verbose);
 
   BEST_TIME("AVX2", fast_avx2_base64_decode(buffer, data, datalength), (int) expected, , repeat, datalength,verbose);
@@ -69,7 +76,7 @@ void testdecode(const char * data, size_t datalength, bool verbose) {
   BEST_TIME_NOCHECK("avx512_memcpy", avx512_memcpy(buffer, data, datalength),  , repeat, datalength,verbose);
   if(!verbose) printf("\t\t\t");
   int statspeed = 10;
-  MEASURE_SPEED("memcpy", memcpy(buffer, data, datalength), large_repeat, statspeed,  datalength,verbose);
+  MEASURE_SPEED("memcpy", copy(buffer, data, datalength), large_repeat, statspeed,  datalength,verbose);
   MEASURE_SPEED("Google chrome", chromium_base64_decode(buffer, data, datalength) , large_repeat, statspeed, datalength,verbose);
   MEASURE_SPEED("AVX2", fast_avx2_base64_decode(buffer, data, datalength), large_repeat, statspeed, datalength,verbose);
   MEASURE_SPEED("AVX512VBMI", decode_base64_avx512vbmi((uint8_t*)buffer, (const uint8_t*)data, datalength), large_repeat, statspeed, datalength,verbose);
