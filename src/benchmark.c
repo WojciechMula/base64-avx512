@@ -35,16 +35,18 @@ void * copy(void *restrict dst, const void *restrict src, size_t n) {
 void testencode(const char * data, size_t datalength, bool verbose) {
   if(verbose) printf("encode a base64 input of  %zu bytes, ",datalength);
   char * buffer = aligned_malloc(alignment, datalength * 2);
+  char * tmp = aligned_malloc(alignment, datalength * 2);
   size_t expected =   chromium_base64_encode(buffer, data,  datalength);
   if(verbose) printf("encoded size = %zu \n",expected);
   int speedrepeat = repeat * 10;
   int statspeed = 10;
-  copy(buffer, data, datalength); // warming up
-  MEASURE_SPEED("memcpy", copy(buffer, data, datalength), speedrepeat, statspeed, datalength,verbose);
+  copy(tmp, buffer, expected); // warming up
+  MEASURE_SPEED("memcpy (base64)", copy(tmp, buffer, expected), speedrepeat, statspeed, datalength,verbose);
   MEASURE_SPEED("Google chrome", chromium_base64_encode(buffer, data, datalength) , speedrepeat, statspeed, datalength,verbose);
   MEASURE_SPEED("AVX2", fast_avx2_base64_encode(buffer, data, datalength), speedrepeat, statspeed, datalength,verbose);
   MEASURE_SPEED("AVX512VL", encode_base64_avx512vl((uint8_t*)buffer, (const uint8_t*)data, datalength) , speedrepeat, statspeed, datalength,verbose);
   aligned_free(buffer);
+  aligned_free(tmp);
   if(verbose) printf("\n");
 }
 
@@ -61,7 +63,7 @@ void testdecode(const char * data, size_t datalength, bool verbose) {
    int speedrepeat = repeat * 10;
    int statspeed = 10;
   copy(buffer, data, datalength); // warming up.
-  MEASURE_SPEED("memcpy", copy(buffer, data, datalength), speedrepeat, statspeed,  datalength,verbose);
+  MEASURE_SPEED("memcpy (base64)", copy(buffer, data, datalength), speedrepeat, statspeed,  datalength,verbose);
   MEASURE_SPEED("Google chrome", chromium_base64_decode(buffer, data, datalength) , speedrepeat, statspeed, datalength,verbose);
   MEASURE_SPEED("AVX2", fast_avx2_base64_decode(buffer, data, datalength), speedrepeat, statspeed, datalength,verbose);
   MEASURE_SPEED("AVX512VBMI (unrolled)", decode_base64_avx512vbmi__unrolled((uint8_t*)buffer, (const uint8_t*)data, datalength), speedrepeat, statspeed, datalength,verbose);
@@ -166,9 +168,9 @@ int main(int argc, char *argv[]) {
     printf("error opening %s \n", decodingfilename);
   }
 
-  printf("#displaying speed (GB/s) based on input bytes for memcpy and decoders: memcpy, chromium, AVX2, AVX512; first column is number of bytes\n");
+  printf("#displaying speed (GB/s) based on input bytes for memcpy and decoders: memcpy base64, chromium, AVX2, AVX512; first column is number of bytes\n");
   printf("#Each measure is given as a triple (mean, min, max)\n");
-  for(int l = 1024; l <= N; l+=64) {
+  for(int l = 1024; l <= N; l+=256) {
    printf("%d ",l);
     char * code = (char*) aligned_malloc(alignment, chromium_base64_encode_len(l));
     int codedlen = chromium_base64_encode(code, randombuffer, l);
@@ -180,9 +182,9 @@ int main(int argc, char *argv[]) {
   if ( freopen(encodingfilename,"w",stdout) == NULL) {
     printf("error opening %s \n", encodingfilename);
   }
-  printf("#displaying speed (GB/s) based on input bytes for memcpy and encoders: memcpy, chromium, AVX2, AVX512 first column is number of bytes\n");
+  printf("#displaying speed (GB/s) based on input bytes for memcpy and encoders: memcpy base64, chromium, AVX2, AVX512 first column is number of bytes\n");
   printf("#Each measure is given as a triple (mean, min, max)\n");
-  for(int l = 1024; l <= N; l+=64) {
+  for(int l = 1024; l <= N; l+=256) {
     printf("%d ",l);
     testencode(randombuffer, l, false);
     printf("\n");

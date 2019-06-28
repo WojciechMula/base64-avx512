@@ -3,44 +3,44 @@ lena [jpg]
 loading file data/lena_color_512.base64 
 removing spaces (as a preliminary step), init size = 142876,  final size = 141020 
 decoding a base64 input of  141020 bytes, original size = 105764 
-memcpy                                                      	:  26.324 GB/s 
-Google chrome                                               	:  2.587 GB/s 
-AVX2                                                        	:  14.284 GB/s 
-AVX512VBMI (unrolled)                                       	:  27.910 GB/s 
+memcpy (base64)                                             	:  28.956 GB/s 
+Google chrome                                               	:  2.596 GB/s 
+AVX2                                                        	:  14.535 GB/s 
+AVX512VBMI (unrolled)                                       	:  37.006 GB/s 
 
 encode a base64 input of  105764 bytes, encoded size = 141020 
-memcpy                                                      	:  33.609 GB/s 
-Google chrome                                               	:  1.138 GB/s 
-AVX2                                                        	:  12.738 GB/s 
-AVX512VL                                                    	:  22.187 GB/s 
+memcpy (base64)                                             	:  21.753 GB/s 
+Google chrome                                               	:  1.133 GB/s 
+AVX2                                                        	:  12.759 GB/s 
+AVX512VL                                                    	:  22.520 GB/s 
 
 mandril [jpg]
 loading file data/mandril_color.base64 
 removing spaces (as a preliminary step), init size = 333970,  final size = 329632 
 decoding a base64 input of  329632 bytes, original size = 247222 
-memcpy                                                      	:  23.099 GB/s 
-Google chrome                                               	:  2.587 GB/s 
-AVX2                                                        	:  14.207 GB/s 
-AVX512VBMI (unrolled)                                       	:  25.138 GB/s 
+memcpy (base64)                                             	:  22.459 GB/s 
+Google chrome                                               	:  2.594 GB/s 
+AVX2                                                        	:  14.118 GB/s 
+AVX512VBMI (unrolled)                                       	:  24.537 GB/s 
 
 encode a base64 input of  247222 bytes, encoded size = 329632 
-memcpy                                                      	:  23.212 GB/s 
-Google chrome                                               	:  1.138 GB/s 
-AVX2                                                        	:  12.453 GB/s 
-AVX512VL                                                    	:  16.972 GB/s 
+memcpy (base64)                                             	:  17.025 GB/s 
+Google chrome                                               	:  1.129 GB/s 
+AVX2                                                        	:  12.593 GB/s 
+AVX512VL                                                    	:  17.465 GB/s 
 
 google logo [png]
 loading file data/googlelogo.base64 
 removing spaces (as a preliminary step), init size = 3186,  final size = 3144 
 decoding a base64 input of  3144 bytes, original size = 2357 
-memcpy                                                      	:  83.612 GB/s 
-Google chrome                                               	:  2.501 GB/s 
-AVX2                                                        	:  13.510 GB/s 
-AVX512VBMI (unrolled)                                       	:  42.634 GB/s 
+memcpy (base64)                                             	:  83.255 GB/s 
+Google chrome                                               	:  2.570 GB/s 
+AVX2                                                        	:  12.444 GB/s 
+AVX512VBMI (unrolled)                                       	:  32.995 GB/s 
 
 encode a base64 input of  2357 bytes, encoded size = 3144 
-memcpy                                                      	:  88.410 GB/s 
-Google chrome                                               	:  1.112 GB/s 
-AVX2                                                        	:  10.017 GB/s 
-AVX512VL                                                    	:  22.021 GB/s 
+memcpy (base64)                                             	:  64.262 GB/s 
+Google chrome                                               	:  1.115 GB/s 
+AVX2                                                        	:  10.217 GB/s 
+AVX512VL                                                    	:  20.005 GB/s 
 
