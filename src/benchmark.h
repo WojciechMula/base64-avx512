@@ -1,7 +1,8 @@
 #ifndef _BENCHMARK_H_
 #define _BENCHMARK_H_
 #include <time.h>
-
+#include <sys/time.h> 
+#include <float.h>
 #define RDTSC_START(cycles)                                                    \
   do {                                                                         \
     uint32_t cyc_high, cyc_low;                                                \
@@ -104,40 +105,48 @@ uint64_t global_rdtsc_overhead = (uint64_t)UINT64_MAX;
     fflush(NULL);                                                              \
   } while (0)
 
-#define MEASURE_SPEED(name, test, repeat, statrepeat, sizeinbytes, verbose)                \
+double time_in_seconds(struct timespec * start, struct timespec * end) {
+  return ((end->tv_sec - start->tv_sec) * 1e9 + (end->tv_nsec - start->tv_nsec)) * 1e-9;
+}
+
+#define MEASURE_SPEED(name, test, repeat, statrepeat, sizeinbytes, verbose)    \
   do {                                                                         \
     if (verbose)                                                               \
       printf("%-60.60s\t: ", name);                                            \
     fflush(NULL);                                                              \
-    clock_t begin_time, end_time;                                              \
-    uint64_t total_time = 0;                                                   \
-    uint64_t min_time = (uint64_t) - 1;                                        \
-    uint64_t max_time = 0;                                                     \
-   for(int stati = 0; stati < statrepeat; stati++) {\
-      begin_time = clock();                                                    \
-    for (int i = 0; i < repeat; i++) {                                         \
-      __asm volatile("" :: : /* pretend to clobber */ "memory");               \
-      test;                                                                    \
+    double total_time = 0;                                                   \
+    double min_time = DBL_MAX;                                        \
+    double max_time = 0;                                                     \
+    struct timespec start, end;                                          \
+  for (int stati = 0; stati < statrepeat; stati++) {                         \
+        __asm volatile("" :: : /* pretend to clobber */ "memory");             \
+      clock_gettime(CLOCK_MONOTONIC, &start);                                                     \
+      for (int i = 0; i < repeat; i++) {                                       \
+        test;                                                                  \
+      }                                                                        \
+      clock_gettime(CLOCK_MONOTONIC, &end);                                                       \
+      double t = time_in_seconds(&start,&end);\
+      total_time += t;                                     \
+      if (t < min_time)                        \
+        min_time = t;                                      \
+      if (t > max_time)                        \
+        max_time = t;                                      \
     }                                                                          \
-      end_time = clock();                                                      \
-      total_time += end_time - begin_time;                                     \
-      if ((uint64_t)(end_time - begin_time) < min_time)                                     \
-        min_time = end_time - begin_time;                                       \
-      if ((uint64_t)(end_time - begin_time) > max_time)                                     \
-        max_time = end_time - begin_time;                                       \
-}\
-    double tv = (double)total_time / CLOCKS_PER_SEC;                           \
-    double tvmin = (double)min_time / CLOCKS_PER_SEC;                          \
-    double tvmax = (double)max_time / CLOCKS_PER_SEC;                          \
-    double gb_per_s = (sizeinbytes * repeat * statrepeat ) / (tv * 1024 * 1024 * 1024.0);    \
-    double max_gb_per_s = (sizeinbytes * repeat) / (tvmin * 1024 * 1024 * 1024.0);        \
-    double min_gp_per_s = (sizeinbytes * repeat) / (tvmax * 1024 * 1024 * 1024.0);        \
+    double tv = total_time ;                           \
+    double tvmin = min_time ;                          \
+    double tvmax = max_time ;                          \
+    double gb_per_s =                                                          \
+        (sizeinbytes * repeat * statrepeat) / (tv * 1024 * 1024 * 1024.0);     \
+    double max_gb_per_s =                                                      \
+        (sizeinbytes * repeat) / (tvmin * 1024 * 1024 * 1024.0);               \
+    double min_gp_per_s =                                                      \
+        (sizeinbytes * repeat) / (tvmax * 1024 * 1024 * 1024.0);               \
     if (verbose)                                                               \
       printf(" %.3f GB/s ", gb_per_s);                                         \
     if (verbose)                                                               \
       printf("\n");                                                            \
     if (!verbose)                                                              \
-      printf(" %.3f %.3f %.3f     ", gb_per_s, min_gp_per_s, max_gb_per_s);                  \
+      printf(" %.3f %.3f %.3f     ", gb_per_s, min_gp_per_s, max_gb_per_s);    \
     fflush(NULL);                                                              \
   } while (0)
 
