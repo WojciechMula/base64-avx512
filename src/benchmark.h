@@ -1,7 +1,7 @@
 #ifndef _BENCHMARK_H_
 #define _BENCHMARK_H_
 #include <time.h>
-#include <sys/time.h> 
+#include <sys/time.h>
 #include <float.h>
 #define RDTSC_START(cycles)                                                    \
   do {                                                                         \
@@ -105,38 +105,100 @@ uint64_t global_rdtsc_overhead = (uint64_t)UINT64_MAX;
     fflush(NULL);                                                              \
   } while (0)
 
-double time_in_seconds(struct timespec * start, struct timespec * end) {
-  return ((end->tv_sec - start->tv_sec) * 1e9 + (end->tv_nsec - start->tv_nsec)) * 1e-9;
+double time_in_seconds(struct timespec *start, struct timespec *end) {
+  return ((end->tv_sec - start->tv_sec) * 1e9 +
+          (end->tv_nsec - start->tv_nsec)) *
+         1e-9;
 }
+static int comparedouble(const void *a, const void *b) {
+  if (*(double *)a > *(double *)b)
+    return 1;
+  else if (*(double *)a < *(double *)b)
+    return -1;
+  else
+    return 0;
+}
+
+double median(double *values, size_t howmany) {
+  qsort(values, howmany, sizeof(double), comparedouble);
+  if ((howmany & 1) == 0) { // even case
+    return (values[howmany / 2] + values[howmany / 2 + 1]) / 2;
+  } else {
+    return values[howmany / 2]; // given 3, this looks at 1
+  }
+}
+#define MEASURE_SPEED_WARMUP(name, test, repeat, statrepeat, sizeinbytes,      \
+                             verbose)                                          \
+  do {                                                                         \
+    if (verbose)                                                               \
+      printf("%-60.60s\t: ", name);                                            \
+    fflush(NULL);                                                              \
+    double min_time = DBL_MAX;                                                 \
+    double max_time = 0;                                                       \
+    double *alltimes = (double *)malloc(sizeof(double) * statrepeat);          \
+    struct timespec start, end;                                                \
+    for (int stati = 0; stati < statrepeat; stati++) {                         \
+      __asm volatile("" :: : /* pretend to clobber */ "memory");               \
+      clock_gettime(CLOCK_MONOTONIC, &start);                                  \
+      for (int i = 0; i < repeat; i++) {                                       \
+        test;                                                                  \
+      }                                                                        \
+      clock_gettime(CLOCK_MONOTONIC, &end);                                    \
+      double t = time_in_seconds(&start, &end);                                \
+      alltimes[stati] = t;                                                     \
+      if (t < min_time)                                                        \
+        min_time = t;                                                          \
+      if (t > max_time)                                                        \
+        max_time = t;                                                          \
+    }                                                                          \
+    double tvmin = min_time;                                                   \
+    double tvmax = max_time;                                                   \
+    double gb_per_s = (sizeinbytes * repeat) /                                 \
+                      (median(alltimes, statrepeat) * 1024 * 1024 * 1024.0);   \
+    double max_gb_per_s =                                                      \
+        (sizeinbytes * repeat) / (tvmin * 1024 * 1024 * 1024.0);               \
+    double min_gp_per_s =                                                      \
+        (sizeinbytes * repeat) / (tvmax * 1024 * 1024 * 1024.0);               \
+    if (verbose)                                                               \
+      printf(" %.3f GB/s ", gb_per_s);                                         \
+    if (verbose)                                                               \
+      printf("\n");                                                            \
+    if (gb_per_s <= 0)                                                         \
+      printf("issue\n");                                                       \
+    if (min_gp_per_s <= 0)                                                     \
+      printf("issue\n");                                                       \
+    if (max_gb_per_s <= 0)                                                     \
+      printf("issue\n");                                                       \
+    fflush(NULL);                                                              \
+  } while (0)
 
 #define MEASURE_SPEED(name, test, repeat, statrepeat, sizeinbytes, verbose)    \
   do {                                                                         \
     if (verbose)                                                               \
       printf("%-60.60s\t: ", name);                                            \
     fflush(NULL);                                                              \
-    double total_time = 0;                                                   \
-    double min_time = DBL_MAX;                                        \
-    double max_time = 0;                                                     \
-    struct timespec start, end;                                          \
-  for (int stati = 0; stati < statrepeat; stati++) {                         \
-        __asm volatile("" :: : /* pretend to clobber */ "memory");             \
-      clock_gettime(CLOCK_MONOTONIC, &start);                                                     \
+    double min_time = DBL_MAX;                                                 \
+    double max_time = 0;                                                       \
+    double *alltimes = (double *)malloc(sizeof(double) * statrepeat);          \
+    struct timespec start, end;                                                \
+    for (int stati = 0; stati < statrepeat; stati++) {                         \
+      __asm volatile("" :: : /* pretend to clobber */ "memory");               \
+      clock_gettime(CLOCK_MONOTONIC, &start);                                  \
       for (int i = 0; i < repeat; i++) {                                       \
         test;                                                                  \
       }                                                                        \
-      clock_gettime(CLOCK_MONOTONIC, &end);                                                       \
-      double t = time_in_seconds(&start,&end);\
-      total_time += t;                                     \
-      if (t < min_time)                        \
-        min_time = t;                                      \
-      if (t > max_time)                        \
-        max_time = t;                                      \
+      clock_gettime(CLOCK_MONOTONIC, &end);                                    \
+      double t = time_in_seconds(&start, &end);                                \
+      alltimes[stati] = t;                                                     \
+      if (t < min_time)                                                        \
+        min_time = t;                                                          \
+      if (t > max_time)                                                        \
+        max_time = t;                                                          \
     }                                                                          \
-    double tv = total_time ;                           \
-    double tvmin = min_time ;                          \
-    double tvmax = max_time ;                          \
-    double gb_per_s =                                                          \
-        (sizeinbytes * repeat * statrepeat) / (tv * 1024 * 1024 * 1024.0);     \
+    double tvmin = min_time;                                                   \
+    double tvmax = max_time;                                                   \
+    double gb_per_s = (sizeinbytes * repeat) /                                 \
+                      (median(alltimes, statrepeat) * 1024 * 1024 * 1024.0);   \
     double max_gb_per_s =                                                      \
         (sizeinbytes * repeat) / (tvmin * 1024 * 1024 * 1024.0);               \
     double min_gp_per_s =                                                      \

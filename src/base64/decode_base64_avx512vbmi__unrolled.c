@@ -6,7 +6,7 @@
 
 // Note: constants lookup_lo, lookup_hi, joinXX were
 // generated with scripts/avx512vbmi_decode_lookups.py
-
+// loads inputs of 64 * 4 = 256 bytes at a time.
 size_t decode_base64_avx512vbmi__unrolled(uint8_t* dst, const uint8_t* src, size_t size) {
 
     const __m512i lookup_0 = _mm512_setr_epi32(
