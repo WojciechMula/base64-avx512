@@ -47,6 +47,8 @@ void testencode(const char *data, size_t datalength, bool verbose) {
     speedrepeat *= 2;
   }
   int statspeed = 30;
+  MEASURE_SPEED_WARMUP("memcpy (base64)", copy(buffer, data, datalength),
+                       speedrepeat, statspeed * 10, datalength, false);
   MEASURE_SPEED("memcpy (base64)", copy(tmp, buffer, expected), speedrepeat,
                 statspeed, expected, verbose);
   MEASURE_SPEED("Google chrome",
