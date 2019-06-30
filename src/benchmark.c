@@ -51,13 +51,13 @@ void testencode(const char *data, size_t datalength, bool verbose) {
                 statspeed, expected, verbose);
   MEASURE_SPEED("Google chrome",
                 chromium_base64_encode(buffer, data, datalength), speedrepeat,
-                statspeed, datalength, verbose);
+                statspeed, expected, verbose);
   MEASURE_SPEED("AVX2", fast_avx2_base64_encode(buffer, data, datalength),
-                speedrepeat, statspeed, datalength, verbose);
-  MEASURE_SPEED("AVX512VL",
+                speedrepeat, statspeed, expected, verbose);
+  MEASURE_SPEED("AVX-512",
                 encode_base64_avx512vl((uint8_t *)buffer, (const uint8_t *)data,
                                        datalength),
-                speedrepeat, statspeed, datalength, verbose);
+                speedrepeat, statspeed, expected, verbose);
   aligned_free(buffer);
   aligned_free(tmp);
   if (verbose)
@@ -89,7 +89,7 @@ void testdecode(const char *data, size_t datalength, bool verbose) {
                 statspeed, datalength, verbose);
   MEASURE_SPEED("AVX2", fast_avx2_base64_decode(buffer, data, datalength),
                 speedrepeat, statspeed, datalength, verbose);
-  MEASURE_SPEED("AVX512VBMI (unrolled)",
+  MEASURE_SPEED("AVX-512",
                 decode_base64_avx512vbmi__unrolled(
                     (uint8_t *)buffer, (const uint8_t *)data, datalength),
                 speedrepeat, statspeed, datalength, verbose);
@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
   strcpy(realfilename, outputdir);
   realfilename[dirlen] = '/';
   strcpy(realfilename + dirlen + 1, realfilenamej);
-
+  printf("All speepds are normalized based on the base64 data size.\n");
   printf("See files %s %s %s... \n", encodingfilename, decodingfilename,
          realfilename);
   if (freopen(decodingfilename, "w", stdout) == NULL) {
