@@ -23,7 +23,7 @@
 #include "load_file.h"
 
 static const int repeat = 10;
-static const int alignment = 2048;
+static const int alignment = 16384;
 static const int minimal_volume = 16384;
 
 // to void inlining!
@@ -46,9 +46,9 @@ void testencode(const char *data, size_t datalength, bool verbose) {
   while (speedrepeat * datalength < minimal_volume) {
     speedrepeat *= 2;
   }
-  int statspeed = 10;
+  int statspeed = 30;
   MEASURE_SPEED("memcpy (base64)", copy(tmp, buffer, expected), speedrepeat,
-                statspeed, datalength, verbose);
+                statspeed, expected, verbose);
   MEASURE_SPEED("Google chrome",
                 chromium_base64_encode(buffer, data, datalength), speedrepeat,
                 statspeed, datalength, verbose);
@@ -79,7 +79,7 @@ void testdecode(const char *data, size_t datalength, bool verbose) {
   while (speedrepeat * datalength < minimal_volume) {
     speedrepeat *= 2;
   }
-  int statspeed = 10;
+  int statspeed = 30;
   MEASURE_SPEED_WARMUP("memcpy (base64)", copy(buffer, data, datalength),
                        speedrepeat, statspeed * 10, datalength, false);
   MEASURE_SPEED("memcpy (base64)", copy(buffer, data, datalength), speedrepeat,
@@ -161,7 +161,8 @@ int main(int argc, char *argv[]) {
     }
   }
   printf("Testing first with random data.\n");
-  const int N = 2048 * 16;
+  const int N = 2048 * 32;
+  const int step = 2048;
   char randombuffer[N];
   for (int k = 0; k < N; ++k)
     randombuffer[k] = rand();
@@ -196,7 +197,7 @@ int main(int argc, char *argv[]) {
          "decoders: memcpy base64, chromium, AVX2, AVX512; first column is "
          "number of bytes\n");
   printf("#Each measure is given as a triple (median, min, max)\n");
-  for (int l = 1024; l <= N; l += 256) {
+  for (int l = 1024; l <= N; l += step) {
     printf("%d ", l);
     char *code =
         (char *)aligned_malloc(alignment, chromium_base64_encode_len(l));
@@ -213,7 +214,7 @@ int main(int argc, char *argv[]) {
          "encoders: memcpy base64, chromium, AVX2, AVX512 first column is "
          "number of bytes\n");
   printf("#Each measure is given as a triple (median, min, max)\n");
-  for (int l = 1024; l <= N; l += 256) {
+  for (int l = 1024; l <= N; l += step) {
     printf("%d ", l);
     testencode(randombuffer, l, false);
     printf("\n");
