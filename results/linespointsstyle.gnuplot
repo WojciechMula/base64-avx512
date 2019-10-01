@@ -16,8 +16,8 @@ set ytics nomirror
 
 
 set style line 1 lt rgb "#A00000" lw 5 pt 1 ps 1
-set style line 2 lt rgb "#00A000" lw 5 pt 5 ps 1
-set style line 3 lt rgb "#5060D0" lw 5 pt 7 ps 1
+set style line 2 lt rgb "#00A000" lw 5 pt 5 ps 0.6
+set style line 3 lt rgb "#5060D0" lw 5 pt 7 ps 0.6
 set style line 4 lt rgb "#FF1493" lw 5 pt 9 ps 1
 set style line 5 lt rgb "red" lw 5 pt 11 ps 1
 set style line 6 lt rgb "#808000" lw 5 pt 13 ps 1
