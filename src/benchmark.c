@@ -111,6 +111,7 @@ RealData real_data[] = { { "lena [jpg]", "data/lena_color_512.base64" },
                          { "moby_dick [text]", "data/moby_dick.base64" },
                          { "google logo [png]", "data/googlelogo.base64" },
                          { "bing.com social icons [png]", "data/bing.base64" },
+                         { "large [zip]", "data/large.base64" },
                          { NULL, NULL } };
 
 static inline size_t despace(char *bytes, size_t howmany) {
