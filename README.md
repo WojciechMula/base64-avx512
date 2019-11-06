@@ -20,3 +20,7 @@ docker run -v $PWD/dockeroutput:/dockeroutput --privileged  avx512base64
 
 There is a bash script (`docker.sh`) to help.
 
+## Reference
+
+
+Wojciech Muła, Daniel Lemire, [Base64 encoding and decoding at almost the speed of a memory copy](https://arxiv.org/abs/1910.05109), Software: Practice and Experience (to appear)
