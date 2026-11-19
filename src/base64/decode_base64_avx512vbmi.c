@@ -5,6 +5,7 @@
     - https://github.com/WojciechMula/base64simd/blob/master/decode/pack.avx512bw.cpp
 */
 #include "decode_base64_avx512vbmi.h"
+#include "decode_base64_scalar.h"
 
 #include <assert.h>
 #include <immintrin.h>
@@ -29,7 +30,11 @@ size_t decode_base64_avx512vbmi(uint8_t* dst, const uint8_t* src, size_t size) {
 
     uint8_t* start = dst;
     __m512i errorvec = _mm512_setzero_si512();
-    while (size >= 64) {
+    // We always leave at least two bytes for the tail, which therefore holds
+    // the final quantum and its padding: a '=' seen by the vector loop is
+    // always an error. It also keeps the vector stores within
+    // base64_decoded_max_length, which does not count trailing '='.
+    while (size >= 64 + 2) {
 
         // 1. load input
         __m512i input = _mm512_loadu_si512((const __m512i*)src);
@@ -38,7 +43,7 @@ size_t decode_base64_avx512vbmi(uint8_t* dst, const uint8_t* src, size_t size) {
         __m512i translated = _mm512_permutex2var_epi8(lookup_0, input, lookup_1);
 
         // 2a. check for errors --- convert MSBs to a mask (note: we're reporting error at the end)
-        const int OR_ALL = 0xfe;
+        enum { OR_ALL = 0xfe }; // must be a constant expression (clang)
         errorvec = _mm512_ternarylogic_epi32(errorvec, translated, input, OR_ALL);
 
         // 3. pack four 6-bit values into 24-bit words (all within 32-bit lanes)
@@ -59,7 +64,13 @@ size_t decode_base64_avx512vbmi(uint8_t* dst, const uint8_t* src, size_t size) {
                                 0x00000000, 0x00000000, 0x00000000, 0x00000000);
         const __m512i shuffled = _mm512_permutexvar_epi8(pack, merged);
 
-        _mm512_storeu_si512((__m512*)dst, shuffled);
+        // A block yields 48 bytes. The 16 extra bytes of a full store are
+        // in bounds only if enough input follows (see
+        // base64_decoded_max_length); otherwise use a masked store.
+        if (size >= 128)
+            _mm512_storeu_si512((__m512*)dst, shuffled);
+        else
+            _mm512_mask_storeu_epi8((__m512*)dst, 0x0000ffffffffffffull, shuffled);
 
         src += 64;
         dst += 48;
@@ -69,8 +80,16 @@ size_t decode_base64_avx512vbmi(uint8_t* dst, const uint8_t* src, size_t size) {
     if (_mm512_movepi8_mask(errorvec) != 0)
         return (size_t)-1;
 
-    int scalar = decode_base64_tail_avx512vbmi(dst, src, size);
-    if (scalar < 0)
+    // Fast path for the common (padded, valid) tail; anything else goes to
+    // the reference scalar decoder, which has the final word.
+    if (size <= 64) {
+        const int tail = decode_base64_tail_avx512vbmi(dst, src, size);
+        if (tail >= 0)
+            return (dst - start) + tail;
+    }
+
+    const size_t scalar = decode_base64_scalar(dst, src, size, 0);
+    if (scalar == BASE64_DECODE_ERROR)
         return (size_t)-1;
 
     return (dst - start) + scalar;

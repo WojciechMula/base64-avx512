@@ -5,11 +5,12 @@
 #######
 ## Similarly, it seems that -ftree-vectorize is not obviously useful.
 ######
-CFLAGS	+= -O3 -std=c99 -Wall -Wextra -pedantic -Iinclude
+CFLAGS	+= -O3 -std=c99 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -pedantic -Iinclude
 #FLAGS+=-march=native
 CFLAGS	+= -march=cannonlake
 
 BASE64 	= src/base64/chromiumbase64.o \
+	  src/base64/decode_base64_scalar.o \
 	  src/base64/fastavxbase64.o \
 	  src/base64/encode_base64_avx512vbmi.o \
 	  src/base64/decode_base64_avx512vbmi.o \
@@ -33,6 +34,9 @@ BINS	= unit \
 all: $(BINS)
 
 src/base64/chromiumbase64.o: include/chromiumbase64.h
+src/base64/decode_base64_scalar.o: include/decode_base64_scalar.h
+src/base64/decode_base64_avx512vbmi__unrolled.o: src/base64/decode_base64_tail_avx512vbmi.c include/decode_base64_scalar.h
+src/base64/decode_base64_avx512vbmi.o: src/base64/decode_base64_tail_avx512vbmi.c include/decode_base64_scalar.h
 src/base64/decode_base64_avx512vbmi_despace.o: include/decode_base64_avx512vbmi_despace.h
 src/base64/decode_base64_avx512vbmi.o: include/decode_base64_avx512vbmi.h
 src/base64/decode_base64_avx512vbmi__unrolled.o: include/decode_base64_avx512vbmi__unrolled.h

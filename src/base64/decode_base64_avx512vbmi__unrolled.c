@@ -1,8 +1,10 @@
 #include "decode_base64_avx512vbmi__unrolled.h"
-#include "chromiumbase64.h"
+#include "decode_base64_scalar.h"
 
 #include <assert.h>
 #include <immintrin.h>
+
+#include "decode_base64_tail_avx512vbmi.c"
 
 // Note: constants lookup_lo, lookup_hi, joinXX were
 // generated with scripts/avx512vbmi_decode_lookups.py
@@ -21,9 +23,11 @@ size_t decode_base64_avx512vbmi__unrolled(uint8_t* dst, const uint8_t* src, size
                                 0x2c2b2a29, 0x302f2e2d, 0x80333231, 0x80808080);
 
     uint8_t* start = dst;
-    const int OR_ALL = 0xfe; // function "a or b or c"
+    enum { OR_ALL = 0xfe }; // function "a or b or c" (an enum: must be a constant expression)
     __m512i errorvec = _mm512_setzero_si512();
-    while (size >= 64*4) {
+    // As in decode_base64_avx512vbmi, at least two bytes are always left for
+    // the tail, so a '=' seen by the vector loops is always an error.
+    while (size >= 64*4 + 2) {
 
         // 1. load input
         __m512i input0 = _mm512_loadu_si512((const __m512i*)(src + 0*64));
@@ -41,7 +45,7 @@ size_t decode_base64_avx512vbmi__unrolled(uint8_t* dst, const uint8_t* src, size
         const __m512i t0 = _mm512_ternarylogic_epi32(input0, input1, input2, OR_ALL);
         const __m512i t1 = _mm512_ternarylogic_epi32(input3, translated0, translated1, OR_ALL);
         const __m512i t2 = _mm512_ternarylogic_epi32(translated2, translated3, t0, OR_ALL);
-        errorvec = _mm512_ternarylogic_epi32(t0, t1, t2, OR_ALL);
+        errorvec = _mm512_ternarylogic_epi32(errorvec, t1, t2, OR_ALL); // t2 includes t0
 
         // 3. pack four 6-bit values into 24-bit words (all within 32-bit lanes)
         // Note: exactly the same procedure as we have in AVX2 version
@@ -83,7 +87,7 @@ size_t decode_base64_avx512vbmi__unrolled(uint8_t* dst, const uint8_t* src, size
         size -= 4*64;
     }
 
-    while (size >= 64) {
+    while (size >= 64 + 2) {
 
         // 1. load input
         __m512i input = _mm512_loadu_si512((const __m512i*)src);
@@ -112,7 +116,11 @@ size_t decode_base64_avx512vbmi__unrolled(uint8_t* dst, const uint8_t* src, size
                                 0x00000000, 0x00000000, 0x00000000, 0x00000000);
         const __m512i shuffled = _mm512_permutexvar_epi8(pack, merged);
 
-        _mm512_storeu_si512((__m512*)dst, shuffled);
+        // 48 bytes per block: full store only if enough input follows.
+        if (size >= 128)
+            _mm512_storeu_si512((__m512*)dst, shuffled);
+        else
+            _mm512_mask_storeu_epi8((__m512*)dst, 0x0000ffffffffffffull, shuffled);
 
         src += 64;
         dst += 48;
@@ -122,8 +130,14 @@ size_t decode_base64_avx512vbmi__unrolled(uint8_t* dst, const uint8_t* src, size
     if (_mm512_movepi8_mask(errorvec) != 0)
         return (size_t)-1;
 
-    size_t scalar = chromium_base64_decode((char*)dst, (const char*)src, size);
-    if (scalar == MODP_B64_ERROR)
+    if (size <= 64) {
+        const int tail = decode_base64_tail_avx512vbmi(dst, src, size);
+        if (tail >= 0)
+            return (dst - start) + tail;
+    }
+
+    const size_t scalar = decode_base64_scalar(dst, src, size, 0);
+    if (scalar == BASE64_DECODE_ERROR)
         return (size_t)-1;
 
     return (dst - start) + scalar;

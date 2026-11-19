@@ -7,17 +7,13 @@
     despace code by Zach Wegner --- see https://news.ycombinator.com/item?id=18834741
 */
 #include "decode_base64_avx512vbmi_despace.h"
-#include "chromiumbase64.h"
+#include "decode_base64_scalar.h"
 
-#include <assert.h>
-#include <stdio.h>
 #include <string.h>
 #include <immintrin.h>
 
 // Note: constants lookup_lo, lookup_hi, pack were
 // generated with scripts/avx512vbmi_decode_lookups.py
-
-size_t despace(uint8_t* dst, const uint8_t* src, size_t size);
 
 #if defined(__GNUC__)
 #   define CACHELINE_ALIGNED __attribute__((aligned(64)))
@@ -28,15 +24,34 @@ size_t despace(uint8_t* dst, const uint8_t* src, size_t size);
 
 uint8_t despace_single[64][64] CACHELINE_ALIGNED;
 
-size_t decode_base64_avx512vbmi_despace(uint8_t* dst, const uint8_t* src, size_t size) {
+// Store the first `n` (<= 48) bytes of `v` at `dst`. A full 64-byte store is
+// cheaper, but is only allowed when the caller permits it and enough input
+// remains (`size` >= 128 guarantees that at least 64 more bytes may be
+// written, see base64_decoded_max_length).
+static inline void store_output(uint8_t* dst, __m512i v, unsigned n, size_t size, int allow_full_stores) {
+    if (allow_full_stores && size >= 128)
+        _mm512_storeu_si512((__m512i*)dst, v);
+    else
+        _mm512_mask_storeu_epi8(dst, (n == 64) ? ~0ull : ((1ull << n) - 1), v);
+}
+
+// Decodes 64-byte blocks of base64 characters and white space. It stops,
+// leaving the rest of the input to the scalar decoder, before the first block
+// that holds any other byte (including the '=' padding), or that has too few
+// base64 characters to make progress. It only ever consumes complete 4-char
+// quanta, so the scalar decoder resumes at a quantum boundary.
+//
+// When `allow_full_stores` is zero no byte past the decoded output is ever
+// written, which makes in-place decoding (dst <= src) safe.
+static inline void despace_loop(uint8_t** dst_ptr, const uint8_t** src_ptr, size_t* size_ptr, int allow_full_stores) {
 
     // lookup:
     // - 'A'-'Z', 'a'-'z', '0'-'9', '+', '/'  : base64 6-bit values
-    // - ' ', '\n', '\r'                      : 0x40 [6th bit set]
+    // - ' ', '\t', '\n', '\f', '\r'          : 0x40 [6th bit set]
     // - all other chars                      : 0x80 [7th bit set]
 
     const __m512i lookup_0 = _mm512_setr_epi32(
-                                0x80808080, 0x80808080, 0x80408080, 0x80804080,
+                                0x80808080, 0x80808080, 0x80404080, 0x80804040,
                                 0x80808080, 0x80808080, 0x80808080, 0x80808080,
                                 0x80808040, 0x80808080, 0x3e808080, 0x3f808080,
                                 0x37363534, 0x3b3a3938, 0x80803d3c, 0x80808080);
@@ -45,6 +60,12 @@ size_t decode_base64_avx512vbmi_despace(uint8_t* dst, const uint8_t* src, size_t
                                 0x1211100f, 0x16151413, 0x80191817, 0x80808080,
                                 0x1c1b1a80, 0x201f1e1d, 0x24232221, 0x28272625,
                                 0x2c2b2a29, 0x302f2e2d, 0x80333231, 0x80808080);
+
+    const __m512i pack = _mm512_setr_epi32(
+                            0x06000102, 0x090a0405, 0x0c0d0e08, 0x16101112,
+                            0x191a1415, 0x1c1d1e18, 0x26202122, 0x292a2425,
+                            0x2c2d2e28, 0x36303132, 0x393a3435, 0x3c3d3e38,
+                            0x00000000, 0x00000000, 0x00000000, 0x00000000);
 
     // despace constants
     const uint64_t index_masks[6] = {
@@ -65,80 +86,69 @@ size_t decode_base64_avx512vbmi_despace(uint8_t* dst, const uint8_t* src, size_t
         _mm512_set1_epi8(32),
     };
 
-    uint8_t* start = dst;
-    size_t scalar = 0;
+    uint8_t* dst = *dst_ptr;
+    const uint8_t* src = *src_ptr;
+    size_t size = *size_ptr;
 
     while (size >= 64) {
 
         // 1. load input
-        __m512i input = _mm512_loadu_si512((const __m512i*)src);
+        const __m512i input = _mm512_loadu_si512((const __m512i*)src);
 
         // 2. translate from ASCII into 6-bit values
         __m512i translated = _mm512_permutex2var_epi8(lookup_0, input, lookup_1);
 
-        // 2a. check for errors --- convert MSBs to a mask
-        const uint64_t error_mask = _mm512_test_epi8_mask(translated | input, _mm512_set1_epi8((int8_t)0x80));
-        if (error_mask != 0) return MODP_B64_ERROR;
+        // 2a. check for errors (and padding) --- convert MSBs to a mask
+        const uint64_t error_mask = _mm512_test_epi8_mask(_mm512_or_si512(translated, input), _mm512_set1_epi8((int8_t)0x80));
+        if (error_mask != 0)
+            break;
 
         // 3. check if we need there are spaces (bit 6th)
-        uint64_t whitespace_mask = _mm512_test_epi8_mask(translated, _mm512_set1_epi8(0x40));
+        const uint64_t whitespace_mask = _mm512_test_epi8_mask(translated, _mm512_set1_epi8(0x40));
+        size_t input_skip;
+        unsigned output_bytes;
+
         if (whitespace_mask == 0) {
             // no despacing
-            const __m512i merge_ab_and_bc = _mm512_maddubs_epi16(translated, _mm512_set1_epi32(0x01400140));
-            const __m512i merged = _mm512_madd_epi16(merge_ab_and_bc, _mm512_set1_epi32(0x00011000));
-
-            const __m512i pack = _mm512_setr_epi32(
-                                    0x06000102, 0x090a0405, 0x0c0d0e08, 0x16101112,
-                                    0x191a1415, 0x1c1d1e18, 0x26202122, 0x292a2425,
-                                    0x2c2d2e28, 0x36303132, 0x393a3435, 0x3c3d3e38,
-                                    0x00000000, 0x00000000, 0x00000000, 0x00000000);
-            const __m512i shuffled = _mm512_permutexvar_epi8(pack, merged);
-
-            _mm512_storeu_si512((__m512*)dst, shuffled);
-
-            src += 64;
-            dst += 48;
-            size -= 64;
-        } else {
+            input_skip   = 64;
+            output_bytes = 48;
+        } else if (_blsr_u64(whitespace_mask) == 0) {
             // In emails it's a common case, as all lines have the same length
             // and are separated by **single** '\n' char.
-            if (_blsr_u64(whitespace_mask) == 0) {
-
-                const int idx = __builtin_ctzll(whitespace_mask);
+            const int idx = __builtin_ctzll(whitespace_mask);
 #ifdef ALIGN_LOADS
-                const __m512i indices = _mm512_load_si512((const __m512i*)(&despace_single[0][0] + 64 * idx));
+            const __m512i indices = _mm512_load_si512((const __m512i*)(&despace_single[0][0] + 64 * idx));
 #else
-                const __m512i indices = _mm512_loadu_si512((const __m512i*)(&despace_single[0][0] + 64 * idx));
+            const __m512i indices = _mm512_loadu_si512((const __m512i*)(&despace_single[0][0] + 64 * idx));
 #endif // ALIGN_LOADS
 
-                translated = _mm512_permutexvar_epi8(indices, translated);
+            translated = _mm512_permutexvar_epi8(indices, translated);
 
-                const __m512i merge_ab_and_bc = _mm512_maddubs_epi16(translated, _mm512_set1_epi32(0x01400140));
-                const __m512i merged = _mm512_madd_epi16(merge_ab_and_bc, _mm512_set1_epi32(0x00011000));
+            // 63 characters: the first 60 (15 quanta) are consumed. They span
+            // 61 input bytes when the space comes before the 61st character.
+            input_skip   = (idx > 60) ? 60 : 61;
+            output_bytes = 45;
+        } else {
+            const uint64_t characters_mask = ~whitespace_mask;
+            const size_t count   = (size_t)__builtin_popcountll(characters_mask);
+            const size_t rounded = 4 * (count / 4);
 
-                const __m512i pack = _mm512_setr_epi32(
-                                        0x06000102, 0x090a0405, 0x0c0d0e08, 0x16101112,
-                                        0x191a1415, 0x1c1d1e18, 0x26202122, 0x292a2425,
-                                        0x2c2d2e28, 0x36303132, 0x393a3435, 0x3c3d3e38,
-                                        0x00000000, 0x00000000, 0x00000000, 0x00000000);
-                const __m512i shuffled = _mm512_permutexvar_epi8(pack, merged);
-
-                _mm512_storeu_si512((__m512*)dst, shuffled);
-
-                size_t input_skip = 64 - 3;
-                if (idx > 60) // don't like this 'if'
-                    input_skip -= 1;
-
+            if (rounded == 0) {
+                // Not even one quantum. Skip leading white space if there is
+                // any, otherwise let the scalar code deal with the rest.
+                if (characters_mask == 0) {
+                    input_skip = 64;
+                } else {
+                    input_skip = (size_t)__builtin_ctzll(characters_mask);
+                    if (input_skip == 0)
+                        break;
+                }
                 src  += input_skip;
                 size -= input_skip;
-                dst  += 48 - 3;
-
                 continue;
             }
 
             // despace --- Zach's algorithm starts here
-            uint64_t characters_mask = ~whitespace_mask;
-
             __m512i indices = _mm512_set1_epi8(0);
             for (size_t index = 0; index < 6; index++) {
                 uint64_t m = _pext_u64(index_masks[index], characters_mask);
@@ -147,19 +157,6 @@ size_t decode_base64_avx512vbmi_despace(uint8_t* dst, const uint8_t* src, size_t
 
             translated = _mm512_permutexvar_epi8(indices, translated);
             // end of despace
-
-            // base64 algorithm
-            const __m512i merge_ab_and_bc = _mm512_maddubs_epi16(translated, _mm512_set1_epi32(0x01400140));
-            const __m512i merged = _mm512_madd_epi16(merge_ab_and_bc, _mm512_set1_epi32(0x00011000));
-
-            const __m512i pack = _mm512_setr_epi32(
-                                    0x06000102, 0x090a0405, 0x0c0d0e08, 0x16101112,
-                                    0x191a1415, 0x1c1d1e18, 0x26202122, 0x292a2425,
-                                    0x2c2d2e28, 0x36303132, 0x393a3435, 0x3c3d3e38,
-                                    0x00000000, 0x00000000, 0x00000000, 0x00000000);
-            const __m512i shuffled = _mm512_permutexvar_epi8(pack, merged);
-
-            _mm512_storeu_si512((__m512*)dst, shuffled);
 
             /*
                 Getting number of bytes to skip is a bit tricky.
@@ -203,239 +200,75 @@ size_t decode_base64_avx512vbmi_despace(uint8_t* dst, const uint8_t* src, size_t
                 The correction is needed for cases when count != rounded, otherwise
                 for cases when all converted bytes are consumed we'd end up with
                 wrong skip amounts.
+
+                Since 4 <= rounded <= 60, `expanded` is non-zero and
+                input_skip >= rounded > 0.
             */
-
-            const size_t count   = __builtin_popcountll(characters_mask);
-            const size_t rounded = 4 * (count / 4);
-
             const uint64_t characters_converted = (uint64_t)(-1) >> (64 - rounded - 1);
             const uint64_t expanded             = _pdep_u64(characters_converted, characters_mask);
-            const size_t   input_skip           = 64 - __builtin_clzll(expanded) - !!(count != rounded);
-
-            src  += input_skip;
-            size -= input_skip;
-            dst  += 3 * (count / 4);
+            input_skip   = 64 - (size_t)__builtin_clzll(expanded) - !!(count != rounded);
+            output_bytes = (unsigned)(3 * (count / 4));
         }
+
+        // 4. base64 algorithm
+        const __m512i merge_ab_and_bc = _mm512_maddubs_epi16(translated, _mm512_set1_epi32(0x01400140));
+        const __m512i merged = _mm512_madd_epi16(merge_ab_and_bc, _mm512_set1_epi32(0x00011000));
+        const __m512i shuffled = _mm512_permutexvar_epi8(pack, merged);
+
+        store_output(dst, shuffled, output_bytes, size, allow_full_stores);
+
+        src  += input_skip;
+        size -= input_skip;
+        dst  += output_bytes;
     }
 
-    // this is a really slow part
-    if (size > 0) {
-        uint8_t tmp[128];
-
-        size = despace(tmp, src, size);
-        scalar = chromium_base64_decode((char*)dst, (const char*)tmp, size);
-        if (scalar == MODP_B64_ERROR) return MODP_B64_ERROR;
-    }
-
-    return (dst - start) + scalar;
+    *dst_ptr  = dst;
+    *src_ptr  = src;
+    *size_ptr = size;
 }
 
+size_t decode_base64_avx512vbmi_despace(uint8_t* dst, const uint8_t* src, size_t size) {
+    uint8_t* const start = dst;
+
+    despace_loop(&dst, &src, &size, 1);
+
+    // the rest (padding, errors, short or whitespace-heavy tails)
+    const size_t scalar = decode_base64_scalar(dst, src, size, 1);
+    if (scalar == BASE64_DECODE_ERROR)
+        return BASE64_DECODE_ERROR;
+
+    return (size_t)(dst - start) + scalar;
+}
 
 size_t decode_base64_avx512vbmi_despace_email(uint8_t* dst, uint8_t** src_ptr, size_t size) {
+    uint8_t* const start = dst;
+    const uint8_t* const begin = *src_ptr;
+    const uint8_t* src = begin;
 
-    const __m512i lookup_0 = _mm512_setr_epi32(
-                                0x80808080, 0x80808080, 0x80408080, 0x80804080,
-                                0x80808080, 0x80808080, 0x80808080, 0x80808080,
-                                0x80808040, 0x80808080, 0x3e808080, 0x3f808080,
-                                0x37363534, 0x3b3a3938, 0x80803d3c, 0x80808080);
-    const __m512i lookup_1 = _mm512_setr_epi32(
-                                0x02010080, 0x06050403, 0x0a090807, 0x0e0d0c0b,
-                                0x1211100f, 0x16151413, 0x80191817, 0x80808080,
-                                0x1c1b1a80, 0x201f1e1d, 0x24232221, 0x28272625,
-                                0x2c2b2a29, 0x302f2e2d, 0x80333231, 0x80808080);
+    // In-place decoding: never write past the decoded bytes.
+    despace_loop(&dst, &src, &size, 0);
 
-    // despace constants
-    const uint64_t index_masks[6] = {
-        0xaaaaaaaaaaaaaaaa,
-        0xcccccccccccccccc,
-        0xf0f0f0f0f0f0f0f0,
-        0xff00ff00ff00ff00,
-        0xffff0000ffff0000,
-        0xffffffff00000000,
-    };
-
-    const __m512i index_bits[6] = {
-        _mm512_set1_epi8(1),
-        _mm512_set1_epi8(2),
-        _mm512_set1_epi8(4),
-        _mm512_set1_epi8(8),
-        _mm512_set1_epi8(16),
-        _mm512_set1_epi8(32),
-    };
-
-    uint8_t* start = dst;
-    size_t scalar = 0;
-    uint8_t* src = *src_ptr;
-
-    while (size >= 64) {
-
-        // 1. load input
-        __m512i input = _mm512_loadu_si512((const __m512i*)src);
-
-        // 2. translate from ASCII into 6-bit values
-        __m512i translated = _mm512_permutex2var_epi8(lookup_0, input, lookup_1);
-
-        // 2a. check for errors --- convert MSBs to a mask
-        const uint64_t error_mask = _mm512_test_epi8_mask(translated | input, _mm512_set1_epi8((int8_t)0x80));
-        if (error_mask != 0) {
-            const size_t first_error = __builtin_ctzll(error_mask);
-            // we have following cases for BASE64-message tails:
-            // a) ^BASE64==\n\n--...
-            if (memcmp(src + first_error, "==\n\n--", 6) == 0) {
-                size = first_error + 2;
-                goto tail;
-            }
-
-            // b) ^BASE64=\n\n--...
-            if (memcmp(src + first_error, "=\n\n--", 5) == 0) {
-                size = first_error + 1;
-                goto tail;
-            }
-
-            // c) ^BASE64\n\n--...
-            if (first_error >= 2 && memcmp(src + first_error - 2, "\n\n--", 4) == 0) {
-                size = first_error - 2;
-                goto tail;
-            }
-
-            // we have following cases for valid tails
-            // a) ^\n\n--...
-            // b) ^\n--...
-            // c) ^--...
-            if ((memcmp(src + first_error, "\n\n--", 4) == 0) ||
-                (memcmp(src + first_error, "\n--", 3) == 0) ||
-                (memcmp(src + first_error, "--", 2) == 0)) {
-                goto end;
-            }
-            
-            // otherwise return error
-            return MODP_B64_ERROR;
-        }
-
-        // 3. check if we need there are spaces (bit 6th)
-        uint64_t whitespace_mask = _mm512_test_epi8_mask(translated, _mm512_set1_epi8(0x40));
-        if (whitespace_mask == 0) {
-            // no despacing
-            const __m512i merge_ab_and_bc = _mm512_maddubs_epi16(translated, _mm512_set1_epi32(0x01400140));
-            const __m512i merged = _mm512_madd_epi16(merge_ab_and_bc, _mm512_set1_epi32(0x00011000));
-
-            const __m512i pack = _mm512_setr_epi32(
-                                    0x06000102, 0x090a0405, 0x0c0d0e08, 0x16101112,
-                                    0x191a1415, 0x1c1d1e18, 0x26202122, 0x292a2425,
-                                    0x2c2d2e28, 0x36303132, 0x393a3435, 0x3c3d3e38,
-                                    0x00000000, 0x00000000, 0x00000000, 0x00000000);
-            const __m512i shuffled = _mm512_permutexvar_epi8(pack, merged);
-
-            _mm512_storeu_si512((__m512*)dst, shuffled);
-
-            src += 64;
-            dst += 48;
-            size -= 64;
-        } else {
-            // In emails it's a common case, as all lines have the same length
-            // and are separated by **single** '\n' char.
-            if (_blsr_u64(whitespace_mask) == 0) {
-
-                const int idx = __builtin_ctzll(whitespace_mask);
-#ifdef ALIGN_LOADS
-                const __m512i indices = _mm512_load_si512((const __m512i*)(&despace_single[0][0] + 64 * idx));
-#else
-                const __m512i indices = _mm512_loadu_si512((const __m512i*)(&despace_single[0][0] + 64 * idx));
-#endif // ALIGN_LOADS
-
-                translated = _mm512_permutexvar_epi8(indices, translated);
-
-                const __m512i merge_ab_and_bc = _mm512_maddubs_epi16(translated, _mm512_set1_epi32(0x01400140));
-                const __m512i merged = _mm512_madd_epi16(merge_ab_and_bc, _mm512_set1_epi32(0x00011000));
-
-                const __m512i pack = _mm512_setr_epi32(
-                                        0x06000102, 0x090a0405, 0x0c0d0e08, 0x16101112,
-                                        0x191a1415, 0x1c1d1e18, 0x26202122, 0x292a2425,
-                                        0x2c2d2e28, 0x36303132, 0x393a3435, 0x3c3d3e38,
-                                        0x00000000, 0x00000000, 0x00000000, 0x00000000);
-                const __m512i shuffled = _mm512_permutexvar_epi8(pack, merged);
-
-                _mm512_storeu_si512((__m512*)dst, shuffled);
-
-                size_t input_skip = 64 - 3;
-                if (idx > 60) // don't like this 'if'
-                    input_skip -= 1;
-
-                src  += input_skip;
-                size -= input_skip;
-                dst  += 48 - 3;
-
-                continue;
-            }
-
-            // despace --- Zach's algorithm starts here
-            uint64_t characters_mask = ~whitespace_mask;
-
-            __m512i indices = _mm512_set1_epi8(0);
-            for (size_t index = 0; index < 6; index++) {
-                uint64_t m = _pext_u64(index_masks[index], characters_mask);
-                indices = _mm512_mask_add_epi8(indices, m, indices, index_bits[index]);
-            }
-
-            translated = _mm512_permutexvar_epi8(indices, translated);
-            // end of despace
-
-            // base64 algorithm
-            const __m512i merge_ab_and_bc = _mm512_maddubs_epi16(translated, _mm512_set1_epi32(0x01400140));
-            const __m512i merged = _mm512_madd_epi16(merge_ab_and_bc, _mm512_set1_epi32(0x00011000));
-
-            const __m512i pack = _mm512_setr_epi32(
-                                    0x06000102, 0x090a0405, 0x0c0d0e08, 0x16101112,
-                                    0x191a1415, 0x1c1d1e18, 0x26202122, 0x292a2425,
-                                    0x2c2d2e28, 0x36303132, 0x393a3435, 0x3c3d3e38,
-                                    0x00000000, 0x00000000, 0x00000000, 0x00000000);
-            const __m512i shuffled = _mm512_permutexvar_epi8(pack, merged);
-
-            _mm512_storeu_si512((__m512*)dst, shuffled);
-
-            const size_t count   = __builtin_popcountll(characters_mask);
-            const size_t rounded = 4 * (count / 4);
-
-            const uint64_t characters_converted = (uint64_t)(-1) >> (64 - rounded - 1);
-            const uint64_t expanded             = _pdep_u64(characters_converted, characters_mask);
-            const size_t   input_skip           = 64 - __builtin_clzll(expanded) - !!(count != rounded);
-
-            src  += input_skip;
-            size -= input_skip;
-            dst  += 3 * (count / 4);
-        }
+    // The base64 data ends at the MIME boundary, a line starting with "--",
+    // or at the end of the input. The vector loop stops at the first '-', so
+    // it has not been consumed yet. Since dst < src whenever src > begin, the
+    // byte before the boundary has not been overwritten.
+    size_t payload = size;
+    const uint8_t* dash = (const uint8_t*)memchr(src, '-', size);
+    if (dash != NULL) {
+        if ((size_t)(dash - src) + 1 >= size || dash[1] != '-')
+            return BASE64_DECODE_ERROR;
+        if (dash != begin && dash[-1] != '\n')
+            return BASE64_DECODE_ERROR;
+        payload = (size_t)(dash - src);
     }
 
-tail:
-    // this is a really slow part
-    if (size > 0) {
-        uint8_t tmp[128];
+    const size_t scalar = decode_base64_scalar(dst, src, payload, 1);
+    if (scalar == BASE64_DECODE_ERROR)
+        return BASE64_DECODE_ERROR;
 
-        size = despace(tmp, src, size);
-        scalar = chromium_base64_decode((char*)dst, (const char*)tmp, size);
-        if (scalar == MODP_B64_ERROR) return MODP_B64_ERROR;
-
-        src += size;
-    }
-
-end:
-    *src_ptr = src;
-    return (dst - start) + scalar;
+    *src_ptr = (uint8_t*)(src + payload);
+    return (size_t)(dst - start) + scalar;
 }
-
-
-size_t despace(uint8_t* dst, const uint8_t* src, size_t size) {
-    uint8_t* orig = dst;
-    for (size_t i=0; i < size; i++) {
-        if (src[i] == ' ' || src[i] == '\n' || src[i] == '\r')
-            continue;
-
-        *dst++ = src[i];
-    }
-
-    return dst - orig;
-}
-
 
 uint8_t despace_single[64][64] = {
     {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,-1},

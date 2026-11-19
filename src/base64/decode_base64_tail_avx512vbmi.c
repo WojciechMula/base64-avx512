@@ -3,11 +3,15 @@
 //
 // Procedure decodes tail of whitespace-free base64-encoded
 // message, and deals with trailing '='.
+//
+// It is a fast path only: it handles padded tails (size % 4 == 0) and returns
+// -1, without writing anything, for every input it does not accept. Callers
+// must then defer to decode_base64_scalar, which also accepts unpadded input.
 #include <stddef.h>
 #include <stdint.h>
 #include <immintrin.h>
 
-int decode_base64_tail_avx512vbmi(uint8_t* dst, const uint8_t* src, size_t size) {
+static int decode_base64_tail_avx512vbmi(uint8_t* dst, const uint8_t* src, size_t size) {
 
     const char BASE64_PAD = '=';
 

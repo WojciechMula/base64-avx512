@@ -10,7 +10,6 @@
     back to disc) and carry on parsing.
  
 */
-#define _POSIX_C_SOURCE 200212L // enable posix_memalign
 
 #include <stddef.h>
 #include <stdio.h>
@@ -42,9 +41,9 @@ void decode_email(char* data, size_t size, consume_attachment_function consume, 
 #define SKIP_LINE                                       \
     do {                                                \
         char* start = cursor;                           \
-        for (/**/; *cursor != '\n'; cursor++);          \
+        for (/**/; cursor < end && *cursor != '\n'; cursor++); \
         linelen = (cursor - start);                     \
-        if (*cursor == '\n')                            \
+        if (cursor < end && *cursor == '\n')            \
             cursor++;                                   \
     } while (0);
 
@@ -53,17 +52,17 @@ void decode_email(char* data, size_t size, consume_attachment_function consume, 
     while (cursor < end) {
 
         // skip empty lines
-        while (*cursor == '\n')
+        while (cursor < end && *cursor == '\n')
             cursor++;
 
         // skip lines --- in fact here we'd have parsing
         // i.e. detecting keywords, etc.
         do {
             SKIP_LINE;
-        } while (linelen > 0);
+        } while (linelen > 0 && cursor < end);
 
         // there's an empty line after the attachment header
-        if (linelen == 0) {
+        if (linelen == 0 && cursor < end) {
             puts("detected BASE64 data");
             uint8_t* src_ptr = (uint8_t*)cursor;
             const uint64_t t1 = clock();
@@ -79,12 +78,10 @@ void decode_email(char* data, size_t size, consume_attachment_function consume, 
                 }
             }
 
+            // src_ptr points at the closing boundary line ("--...")
             cursor = (char*)src_ptr;
-            if (*cursor == '\n')
-                cursor++;
-
-            SKIP_LINE;
-            SKIP_LINE;
+            if (cursor < end)
+                SKIP_LINE;
         }
     }
     
