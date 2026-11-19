@@ -1,4 +1,5 @@
 #include "fastavxbase64.h"
+#include "decode_base64_scalar.h"
 
 #include <x86intrin.h>
 #include <stdbool.h>
@@ -185,7 +186,12 @@ size_t fast_avx2_base64_decode(char *out, const char *src, size_t srclen) {
         _mm256_storeu_si256((__m256i *)out, str);
         out += 24;
       }
-      size_t scalarret = chromium_base64_decode(out, src, srclen);
-      if(scalarret == MODP_B64_ERROR) return MODP_B64_ERROR;
+      // The vector loop stops at the first block holding anything other than
+      // base64 characters (e.g., padding); the scalar decoder has the final word.
+      // Note: each 32-byte store above writes 8 bytes past the 24 decoded
+      // bytes; requiring 45 input bytes guarantees that at least 13 input
+      // bytes, hence 8 output bytes (base64_decoded_max_length), follow.
+      size_t scalarret = decode_base64_scalar((uint8_t*)out, (const uint8_t*)src, srclen, 0);
+      if(scalarret == BASE64_DECODE_ERROR) return MODP_B64_ERROR;
       return (out - out_orig) + scalarret;
 }

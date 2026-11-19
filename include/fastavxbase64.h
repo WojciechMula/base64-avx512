@@ -20,7 +20,9 @@ extern "C" {
 
 /*
 * AVX2 accelerated version of Galbreath's chromium_base64_decode function
-* Usage remains the same, see chromium.h.
+* Usage remains the same, see chromium.h, except that padding is optional:
+* it follows the same rules as simdutf::base64_to_binary, white space being
+* an error (see decode_base64_scalar.h).
 */
 size_t fast_avx2_base64_decode(char *out, const char *src, size_t srclen);
 
