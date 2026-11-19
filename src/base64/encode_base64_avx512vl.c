@@ -3,6 +3,7 @@
 #include "chromiumbase64.h"
 
 #include <immintrin.h>
+#include <string.h>
 
 void encode_base64_avx512vl(uint8_t* dst, const uint8_t* src, size_t size) {
 
@@ -50,6 +51,10 @@ void encode_base64_avx512vl(uint8_t* dst, const uint8_t* src, size_t size) {
     }
 
     if (size > 0) {
-        chromium_base64_encode((char*)dst, (const char*)src, size);
+        // chromium_base64_encode appends a NUL byte, which must not land
+        // past the output: encode the (< 64 bytes) tail into a buffer.
+        char tmp[chromium_base64_encode_len(63)];
+        const size_t len = chromium_base64_encode(tmp, (const char*)src, size);
+        memcpy(dst, tmp, len);
     }
 }
